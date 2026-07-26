@@ -979,10 +979,7 @@ mod tests {
             !config.serve_git_web_gui,
             "serve_git_web_gui should default to false"
         );
-        assert!(
-            !config.web_spa_full,
-            "web_spa_full should default to false"
-        );
+        assert!(!config.web_spa_full, "web_spa_full should default to false");
         assert!(
             !config.require_media_get_auth,
             "require_media_get_auth should default to false for staged client rollout"

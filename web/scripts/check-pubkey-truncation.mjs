@@ -17,6 +17,10 @@ const overrides = new Set([
   "src/features/repos/ui/PubkeyAvatar.tsx:29",
   // Array window (first N pubkeys), not string truncation.
   "src/features/repos/ui/OrgSidebar.tsx:22",
+  // Anti-impersonation key tag. Anyone may set any display name, so every name
+  // is rendered beside the last 4 of its key. This is deliberately NOT a
+  // truncated pubkey — it is a short discriminator shown next to a name.
+  "src/features/hive/profiles.ts:32",
 ]);
 
 await runPubkeyTruncationCheck({

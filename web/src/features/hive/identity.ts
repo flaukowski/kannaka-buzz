@@ -9,6 +9,7 @@
 
 import { generateSecretKey, getPublicKey } from "nostr-tools/pure";
 import { npubEncode, nsecEncode, decode } from "nostr-tools/nip19";
+import { truncatePubkey } from "@/shared/lib/pubkey";
 
 const STORAGE_KEY = "kannaka-hive-secret-v1";
 
@@ -82,5 +83,5 @@ export function exportNsec(identity: HiveIdentity): string {
 }
 
 export function shortKey(pubkeyOrNpub: string): string {
-  return `${pubkeyOrNpub.slice(0, 10)}…${pubkeyOrNpub.slice(-4)}`;
+  return truncatePubkey(pubkeyOrNpub);
 }
