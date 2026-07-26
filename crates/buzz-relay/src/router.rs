@@ -509,8 +509,8 @@ mod tests {
         // Opting in makes client-side routing work for paths the relay has never
         // heard of -- that is the whole point of a full client bundle.
         assert!(should_serve_spa("/arbitrary", false, true));
-        assert!(should_serve_spa("/hive", false, true));
-        assert!(should_serve_spa("/hive/anything/nested", false, true));
+        assert!(should_serve_spa("/settings", false, true));
+        assert!(should_serve_spa("/settings/profile/nested", false, true));
         assert!(should_serve_spa("/", false, true));
         assert!(should_serve_spa("/repos/example", false, true));
         assert!(should_serve_spa("/invite/payload.mac", false, true));
@@ -547,7 +547,7 @@ mod tests {
     #[test]
     fn full_spa_mode_is_off_by_default() {
         // Without the opt-in, behaviour is unchanged: unknown paths 404.
-        assert!(!should_serve_spa("/hive", false, false));
+        assert!(!should_serve_spa("/settings", false, false));
         assert!(!should_serve_spa("/arbitrary", false, false));
     }
 
