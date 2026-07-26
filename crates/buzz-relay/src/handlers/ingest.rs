@@ -35,6 +35,10 @@ use buzz_core::kind::{
     KIND_WORKFLOW_DEF, KIND_WORKFLOW_TRIGGER, RELAY_ADMIN_ADD_MEMBER, RELAY_ADMIN_CHANGE_ROLE,
     RELAY_ADMIN_REMOVE_MEMBER, RELAY_ADMIN_SET_WORKSPACE_PROFILE,
 };
+use buzz_core::kind::{
+    KIND_JOB_ACCEPTED, KIND_JOB_CANCEL, KIND_JOB_ERROR, KIND_JOB_PROGRESS, KIND_JOB_REQUEST,
+    KIND_JOB_RESULT,
+};
 use buzz_core::tenant::TenantContext;
 use buzz_core::verification::verify_event;
 use buzz_core::CommunityId;
@@ -300,6 +304,12 @@ fn required_scope_for_kind(kind: u32, event: &Event) -> Result<Scope, &'static s
         KIND_DM_OPEN | KIND_DM_ADD_MEMBER | KIND_DM_HIDE => Ok(Scope::MessagesWrite),
         KIND_WORKFLOW_DEF | KIND_WORKFLOW_TRIGGER => Ok(Scope::MessagesWrite),
         KIND_APPROVAL_GRANT | KIND_APPROVAL_DENY => Ok(Scope::MessagesWrite),
+        // NIP-90-style agent job lifecycle (43001 request … 43006 error).
+        // Channel-scoped via the `h` tag; stored and fanned out like messages
+        // so agents can offer services in-channel. Upstream defines these kinds
+        // but never wired them into ingest — this makes them writable.
+        KIND_JOB_REQUEST | KIND_JOB_ACCEPTED | KIND_JOB_PROGRESS | KIND_JOB_RESULT
+        | KIND_JOB_CANCEL | KIND_JOB_ERROR => Ok(Scope::MessagesWrite),
         _ => Err("restricted: unknown event kind"),
     }
 }
@@ -2842,6 +2852,29 @@ mod tests {
             assert!(
                 required_scope_for_kind(kind, &dummy).is_ok(),
                 "kind {kind} should be in the allowlist"
+            );
+        }
+    }
+
+    #[test]
+    fn job_lifecycle_kinds_require_messages_write() {
+        let dummy = make_dummy_event();
+        for kind in [
+            KIND_JOB_REQUEST,
+            KIND_JOB_ACCEPTED,
+            KIND_JOB_PROGRESS,
+            KIND_JOB_RESULT,
+            KIND_JOB_CANCEL,
+            KIND_JOB_ERROR,
+        ] {
+            assert_eq!(
+                required_scope_for_kind(kind, &dummy).ok(),
+                Some(Scope::MessagesWrite),
+                "job kind {kind} should require MessagesWrite scope"
+            );
+            assert!(
+                !is_global_only_kind(kind),
+                "job kind {kind} must stay channel-scoped via its h tag"
             );
         }
     }
