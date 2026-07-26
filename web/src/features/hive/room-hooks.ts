@@ -26,9 +26,21 @@ export function useTyping(
     );
   }, [client, channelId, self]);
 
-  const [, tick] = useState(0);
+  // Prune expired typers on a timer. This must mutate `seen` (not just force a
+  // re-render) so the derived list below actually drops stale entries —
+  // otherwise the indicator sticks on the last typer forever.
   useEffect(() => {
-    const t = setInterval(() => tick((n) => n + 1), 1500);
+    const t = setInterval(() => {
+      setSeen((prev) => {
+        const now = Date.now();
+        let changed = false;
+        const next = new Map(prev);
+        for (const [pk, at] of prev) {
+          if (now - at >= 6000) { next.delete(pk); changed = true; }
+        }
+        return changed ? next : prev;
+      });
+    }, 1500);
     return () => clearInterval(t);
   }, []);
 
