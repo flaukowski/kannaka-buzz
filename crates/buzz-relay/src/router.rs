@@ -205,7 +205,16 @@ fn is_invite_landing_path(path: &str) -> bool {
 }
 
 fn should_serve_spa(path: &str, serve_git_web_gui: bool) -> bool {
-    is_invite_landing_path(path) || (serve_git_web_gui && is_git_web_gui_path(path))
+    is_invite_landing_path(path)
+        || is_hive_path(path)
+        || (serve_git_web_gui && is_git_web_gui_path(path))
+}
+
+/// Kannaka fork: the Hive browser client lives under /hive and is always
+/// served when a web bundle is configured (auth still happens at the relay
+/// via NIP-42 + allowlist; serving the shell is harmless).
+fn is_hive_path(path: &str) -> bool {
+    path == "/hive" || path.starts_with("/hive/")
 }
 
 fn is_git_web_gui_path(path: &str) -> bool {
@@ -469,6 +478,15 @@ mod tests {
         assert!(should_serve_spa("/", true));
         assert!(should_serve_spa("/repos/example", true));
         assert!(!should_serve_spa("/arbitrary", true));
+    }
+
+    #[test]
+    fn hive_client_is_always_served() {
+        assert!(should_serve_spa("/hive", false));
+        assert!(should_serve_spa("/hive/", false));
+        assert!(should_serve_spa("/hive/anything/nested", true));
+        assert!(!should_serve_spa("/hivemind", false));
+        assert!(!should_serve_spa("/hi", false));
     }
 
     async fn handler_receives_message_with_limit(limit: usize, size: usize) -> bool {

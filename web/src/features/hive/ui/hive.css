@@ -1,0 +1,118 @@
+/* The Hive — Kannaka's face on kannaka-buzz.
+   Substrate is blue-black abyss; honey is the one action color;
+   phase-teal is reserved for live/wave signals. Keys are material: mono. */
+
+@import "@fontsource-variable/space-grotesk/index.css";
+
+.hive-root {
+  --abyss: #0b0e14;
+  --depth: #131826;
+  --pane: #10141f;
+  --line: #232b3d;
+  --foam: #e8edf7;
+  --drift: #8a94ad;
+  --honey: #e8b84b;
+  --honey-deep: #b8892a;
+  --phase: #5ee0c6;
+  --danger: #e8756b;
+
+  font-family: "Inter Variable", system-ui, sans-serif;
+  background: var(--abyss);
+  color: var(--foam);
+  min-height: 100dvh;
+}
+
+.hive-display {
+  font-family: "Space Grotesk Variable", "Inter Variable", sans-serif;
+  letter-spacing: -0.01em;
+}
+
+.hive-mono {
+  font-family: ui-monospace, "Cascadia Code", "SF Mono", monospace;
+  font-size: 0.78rem;
+  letter-spacing: 0.01em;
+}
+
+.hive-eyebrow {
+  font-family: ui-monospace, "Cascadia Code", monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--drift);
+}
+
+.hive-card {
+  background: color-mix(in srgb, var(--depth) 88%, transparent);
+  border: 1px solid var(--line);
+  backdrop-filter: blur(6px);
+}
+
+.hive-action {
+  background: var(--honey);
+  color: #14100a;
+  font-weight: 600;
+  transition: background 120ms ease;
+}
+.hive-action:hover:not(:disabled) {
+  background: #f2c964;
+}
+.hive-action:disabled {
+  background: var(--line);
+  color: var(--drift);
+}
+
+.hive-quiet {
+  border: 1px solid var(--line);
+  color: var(--drift);
+  transition:
+    color 120ms ease,
+    border-color 120ms ease;
+}
+.hive-quiet:hover {
+  color: var(--foam);
+  border-color: var(--drift);
+}
+
+.hive-input {
+  background: var(--abyss);
+  border: 1px solid var(--line);
+  color: var(--foam);
+}
+.hive-input:focus {
+  outline: 2px solid var(--honey-deep);
+  outline-offset: 0;
+  border-color: transparent;
+}
+.hive-input::placeholder {
+  color: color-mix(in srgb, var(--drift) 60%, transparent);
+}
+
+.hive-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background: var(--phase);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--phase) 70%, transparent);
+}
+
+.hive-channel-active {
+  background: color-mix(in srgb, var(--honey) 9%, transparent);
+  color: var(--foam);
+  border-left: 2px solid var(--honey);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .hive-fade-in {
+    animation: hive-fade-in 480ms ease both;
+  }
+  @keyframes hive-fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
