@@ -36,7 +36,10 @@ export function useTyping(
         let changed = false;
         const next = new Map(prev);
         for (const [pk, at] of prev) {
-          if (now - at >= 6000) { next.delete(pk); changed = true; }
+          if (now - at >= 6000) {
+            next.delete(pk);
+            changed = true;
+          }
         }
         return changed ? next : prev;
       });
