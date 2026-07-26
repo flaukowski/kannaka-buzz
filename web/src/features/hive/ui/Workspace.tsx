@@ -5,10 +5,17 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { HiveClient, HiveEvent } from "../hive-client";
 import type { HiveIdentity } from "../identity";
 import { displayName, useProfiles } from "../profiles";
+import { useMembers, useReactions, useTyping } from "../room-hooks";
 import { StatusLine } from "./StatusLine";
+
+const QUICK_REACTIONS = ["👍", "🔥", "🐝", "🤯", "❤️"];
+const AGENT_PUBKEY =
+  "038fafe28608b3eda36912d30483fd07953713eb0601cc8d98b20eb8126c67a6";
 
 interface Channel {
   id: string;
@@ -48,8 +55,12 @@ export function Workspace({ client, identity, onLeave }: Props) {
   const [nameDraft, setNameDraft] = useState("");
   const [editingName, setEditingName] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const lastTypingRef = useRef(0);
   const profiles = useProfiles(client);
   const me = displayName(identity.pubkey, profiles, identity.pubkey);
+  const typing = useTyping(client, activeId, identity.pubkey);
+  const reactions = useReactions(client, activeId, identity.pubkey);
+  const members = useMembers(client, activeId);
 
   // Channel discovery: relay-signed group metadata, live.
   useEffect(() => {
@@ -161,6 +172,33 @@ export function Workspace({ client, identity, onLeave }: Props) {
     [client, forgetChannel],
   );
 
+  const react = useCallback(
+    async (messageId: string, emoji: string) => {
+      if (!activeId) return;
+      try {
+        await client.publish(7, emoji, [
+          ["e", messageId],
+          ["h", activeId],
+        ]);
+      } catch {
+        /* reaction is best-effort */
+      }
+    },
+    [client, activeId],
+  );
+
+  const onDraftChange = useCallback(
+    (value: string) => {
+      setDraft(value);
+      const now = Date.now();
+      if (activeId && value && now - lastTypingRef.current > 3000) {
+        lastTypingRef.current = now;
+        client.publish(20002, "", [["h", activeId]]).catch(() => {});
+      }
+    },
+    [client, activeId],
+  );
+
   const saveName = useCallback(async () => {
     const name = nameDraft.trim();
     if (!name) return;
@@ -184,6 +222,24 @@ export function Workspace({ client, identity, onLeave }: Props) {
     [channels],
   );
   const active = activeId ? channels.get(activeId) : null;
+  const msgAuthor = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const msg of messages) m.set(msg.id, msg.pubkey);
+    return m;
+  }, [messages]);
+  const typingLine = useMemo(() => {
+    if (typing.length === 0) return null;
+    const names = typing.map(
+      (pk) => displayName(pk, profiles, identity.pubkey).name,
+    );
+    const verb =
+      names.length === 1 && names[0] === "Kannaka"
+        ? "is thinking"
+        : "is typing";
+    if (names.length === 1) return `${names[0]} ${verb}…`;
+    if (names.length === 2) return `${names[0]} and ${names[1]} are typing…`;
+    return `${names.length} people are typing…`;
+  }, [typing, profiles, identity.pubkey]);
 
   return (
     <div className="flex h-dvh flex-col">
@@ -318,16 +374,32 @@ export function Workspace({ client, identity, onLeave }: Props) {
 
         <main className="flex min-w-0 flex-1 flex-col">
           <div
-            className="border-b px-5 py-2.5 text-sm font-medium"
+            className="flex items-center justify-between border-b px-5 py-2.5 text-sm font-medium"
             style={{ borderColor: "var(--line)" }}
           >
-            {active ? active.name : "—"}
-            {active?.about && (
+            <span>
+              {active ? active.name : "—"}
+              {active?.about && (
+                <span
+                  className="ml-3 text-xs font-normal"
+                  style={{ color: "var(--drift)" }}
+                >
+                  {active.about}
+                </span>
+              )}
+            </span>
+            {active && members.length > 0 && (
               <span
-                className="ml-3 text-xs font-normal"
+                className="hive-mono text-xs"
                 style={{ color: "var(--drift)" }}
+                title={members
+                  .map((pk) => displayName(pk, profiles, identity.pubkey).name)
+                  .join(", ")}
               >
-                {active.about}
+                {members.length} {members.length === 1 ? "member" : "members"}
+                {members.some((pk) => pk === AGENT_PUBKEY) && (
+                  <span style={{ color: "var(--phase)" }}> · Kannaka here</span>
+                )}
               </span>
             )}
           </div>
@@ -373,12 +445,68 @@ export function Workspace({ client, identity, onLeave }: Props) {
                       },
                     )}
                   </span>
+                  {(() => {
+                    const replyTo = message.tags.find(
+                      (t) => t[0] === "e" && t[3] === "reply",
+                    )?.[1];
+                    const parentPk = replyTo && msgAuthor.get(replyTo);
+                    if (!parentPk) return null;
+                    return (
+                      <span
+                        className="text-[0.65rem]"
+                        style={{ color: "var(--drift)" }}
+                      >
+                        ↪{" "}
+                        {displayName(parentPk, profiles, identity.pubkey).name}
+                      </span>
+                    );
+                  })()}
                 </div>
-                <p className="mt-0.5 whitespace-pre-wrap break-words text-sm leading-relaxed">
-                  {message.content}
-                </p>
+                <div className="hive-msg-body mt-0.5 break-words text-sm leading-relaxed">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {message.content}
+                  </ReactMarkdown>
+                </div>
+                <div className="hive-msg-reactions mt-1 flex items-center gap-1">
+                  {(() => {
+                    const r = reactions.get(message.id);
+                    return r
+                      ? Object.entries(r.counts).map(([emoji, count]) => (
+                          <button
+                            type="button"
+                            key={emoji}
+                            onClick={() => react(message.id, emoji)}
+                            className={`hive-reaction-pill ${r.mine.has(emoji) ? "hive-reaction-mine" : ""}`}
+                          >
+                            {emoji} {count}
+                          </button>
+                        ))
+                      : null;
+                  })()}
+                  <span className="hive-reaction-add">
+                    {QUICK_REACTIONS.map((emoji) => (
+                      <button
+                        type="button"
+                        key={emoji}
+                        onClick={() => react(message.id, emoji)}
+                        className="hive-reaction-quick"
+                        title={`React ${emoji}`}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </span>
+                </div>
               </div>
             ))}
+            {typingLine && (
+              <p
+                className="hive-typing text-xs"
+                style={{ color: "var(--phase)" }}
+              >
+                {typingLine}
+              </p>
+            )}
             {active && messages.length === 0 && (
               <p className="text-xs" style={{ color: "var(--drift)" }}>
                 Nothing here yet. Say the first thing.
@@ -397,7 +525,7 @@ export function Workspace({ client, identity, onLeave }: Props) {
           >
             <input
               value={draft}
-              onChange={(e) => setDraft(e.target.value)}
+              onChange={(e) => onDraftChange(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && send()}
               placeholder={active ? `Message ${active.name}` : "Pick a channel"}
               disabled={!active}

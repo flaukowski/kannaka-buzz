@@ -41,6 +41,15 @@ export function StatusLine({ client }: { client: HiveClient }) {
           lastAt = Date.now();
           setStale(false);
           setP(parsed);
+          // Let the live-dot breathe at Kannaka's actual swarm frequency.
+          const hz = parsed.swarm?.hz;
+          if (hz && hz > 0) {
+            const period = Math.min(3, Math.max(0.4, 1 / hz));
+            document.documentElement.style.setProperty(
+              "--hz-period",
+              `${period.toFixed(2)}s`,
+            );
+          }
         } catch {
           /* ignore malformed presence */
         }
