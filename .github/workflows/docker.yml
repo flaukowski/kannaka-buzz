@@ -305,6 +305,10 @@ jobs:
 
   push-gateway-build:
     name: Build public push gateway (${{ matrix.platform }})
+    # Kannaka fork: the push-gateway image name is hardcoded to the upstream
+    # GHCR namespace (block/buzz-push-gateway), which forks can't push to.
+    # We don't run a push gateway, so skip these jobs off the upstream repo.
+    if: github.repository == 'block/buzz'
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     permissions:
@@ -382,7 +386,7 @@ jobs:
 
   push-gateway-merge:
     name: Publish public push gateway image
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && github.repository == 'block/buzz'
     runs-on: ubuntu-24.04
     needs: push-gateway-build
     timeout-minutes: 15
