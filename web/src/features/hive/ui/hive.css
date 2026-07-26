@@ -116,3 +116,83 @@
     }
   }
 }
+
+/* Live statusline — mirrors the terminal statusline: badge-led segments on a
+   deep bar, colored per metric (violet HRM / blue SWARM, amber Φ, cyan Ξ). */
+.hive-statusline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0;
+  font-family: ui-monospace, "Cascadia Code", monospace;
+  font-size: 0.72rem;
+  background: #0a0d15;
+  border-top: 1px solid var(--line);
+  padding: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+  transition: opacity 300ms ease;
+}
+.hive-sl-badge {
+  padding: 4px 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #0a0d15;
+}
+.hive-sl-hrm {
+  background: var(--honey);
+}
+.hive-sl-swarm {
+  background: var(--phase);
+  margin-left: 6px;
+}
+.hive-sl-seg {
+  padding: 4px 8px;
+}
+.hive-sl-green {
+  color: #7fe0a0;
+}
+.hive-sl-amber {
+  color: var(--honey);
+}
+.hive-sl-cyan {
+  color: var(--phase);
+}
+.hive-sl-violet {
+  color: #b79cf0;
+}
+.hive-sl-red {
+  color: #e8756b;
+}
+.hive-sl-dim {
+  color: var(--drift);
+}
+
+/* Channel row hover reveals its management affordances. */
+.hive-channel-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.hive-channel-tools {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.hive-channel-row:hover .hive-channel-tools,
+.hive-channel-row:focus-within .hive-channel-tools {
+  opacity: 1;
+}
+.hive-icon-btn {
+  color: var(--drift);
+  padding: 0 4px;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+.hive-icon-btn:hover {
+  color: var(--danger);
+}
+.hive-key-tag {
+  color: var(--drift);
+  opacity: 0.65;
+  font-size: 0.85em;
+}

@@ -6,7 +6,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { HiveClient, HiveEvent } from "../hive-client";
-import { type HiveIdentity, shortKey } from "../identity";
+import type { HiveIdentity } from "../identity";
+import { displayName, useProfiles } from "../profiles";
+import { StatusLine } from "./StatusLine";
 
 interface Channel {
   id: string;
@@ -43,7 +45,11 @@ export function Workspace({ client, identity, onLeave }: Props) {
   const [newChannel, setNewChannel] = useState("");
   const [creating, setCreating] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [nameDraft, setNameDraft] = useState("");
+  const [editingName, setEditingName] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const profiles = useProfiles(client);
+  const me = displayName(identity.pubkey, profiles, identity.pubkey);
 
   // Channel discovery: relay-signed group metadata, live.
   useEffect(() => {
@@ -110,6 +116,69 @@ export function Workspace({ client, identity, onLeave }: Props) {
     }
   }, [client, newChannel]);
 
+  const forgetChannel = useCallback((id: string) => {
+    setChannels((prev) => {
+      const next = new Map(prev);
+      next.delete(id);
+      setActiveId((cur) =>
+        cur === id ? (next.keys().next().value ?? null) : cur,
+      );
+      return next;
+    });
+  }, []);
+
+  const deleteChannel = useCallback(
+    async (id: string, name: string) => {
+      if (!window.confirm(`Delete #${name}? This removes it for everyone.`))
+        return;
+      try {
+        await client.publish(9008, "", [["h", id]]);
+        forgetChannel(id);
+      } catch (e) {
+        setSendError(
+          e instanceof Error
+            ? `Couldn't delete #${name}: ${e.message}`
+            : "Delete failed.",
+        );
+      }
+    },
+    [client, forgetChannel],
+  );
+
+  const leaveChannel = useCallback(
+    async (id: string, name: string) => {
+      try {
+        await client.publish(9022, "", [["h", id]]);
+        forgetChannel(id);
+      } catch (e) {
+        setSendError(
+          e instanceof Error
+            ? `Couldn't leave #${name}: ${e.message}`
+            : "Leave failed.",
+        );
+      }
+    },
+    [client, forgetChannel],
+  );
+
+  const saveName = useCallback(async () => {
+    const name = nameDraft.trim();
+    if (!name) return;
+    try {
+      await client.publish(
+        0,
+        JSON.stringify({
+          name,
+          about: me.name && me.name !== "anon" ? undefined : "",
+        }),
+        [],
+      );
+      setEditingName(false);
+    } catch (e) {
+      setSendError(e instanceof Error ? e.message : "Couldn't set your name.");
+    }
+  }, [client, nameDraft, me.name]);
+
   const channelList = useMemo(
     () => [...channels.values()].sort((a, b) => a.name.localeCompare(b.name)),
     [channels],
@@ -128,9 +197,39 @@ export function Workspace({ client, identity, onLeave }: Props) {
         </div>
         <div className="flex items-center gap-3">
           <span className="hive-live-dot" title="Connected" />
-          <span className="hive-mono" style={{ color: "var(--drift)" }}>
-            {shortKey(identity.npub)}
-          </span>
+          {editingName ? (
+            <span className="flex items-center gap-1">
+              <input
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && saveName()}
+                placeholder="Your name"
+                className="hive-input rounded-md px-2 py-1 text-xs"
+              />
+              <button
+                type="button"
+                onClick={saveName}
+                className="hive-action rounded-md px-2 py-1 text-xs"
+              >
+                Save
+              </button>
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setNameDraft(me.name !== "anon" ? me.name : "");
+                setEditingName(true);
+              }}
+              className="text-xs"
+              title="Set your display name"
+            >
+              <span style={{ color: "var(--foam)" }}>
+                {me.name !== "anon" ? me.name : "set name"}
+              </span>
+              <span className="hive-key-tag hive-mono"> ·{me.tag}</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={onLeave}
@@ -157,23 +256,43 @@ export function Workspace({ client, identity, onLeave }: Props) {
               </p>
             )}
             {channelList.map((channel) => (
-              <button
+              <div
                 key={channel.id}
-                type="button"
-                onClick={() => setActiveId(channel.id)}
-                className={`block w-full px-4 py-2 text-left text-sm ${
-                  channel.id === activeId
-                    ? "hive-channel-active"
-                    : "hover:text-[var(--foam)]"
+                className={`hive-channel-row px-4 py-2 text-sm ${
+                  channel.id === activeId ? "hive-channel-active" : ""
                 }`}
-                style={
-                  channel.id === activeId
-                    ? undefined
-                    : { color: "var(--drift)" }
-                }
               >
-                {channel.name}
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveId(channel.id)}
+                  className="min-w-0 flex-1 truncate text-left"
+                  style={
+                    channel.id === activeId
+                      ? undefined
+                      : { color: "var(--drift)" }
+                  }
+                >
+                  {channel.name}
+                </button>
+                <span className="hive-channel-tools flex gap-1">
+                  <button
+                    type="button"
+                    title="Leave channel"
+                    onClick={() => leaveChannel(channel.id, channel.name)}
+                    className="hive-icon-btn"
+                  >
+                    ↩
+                  </button>
+                  <button
+                    type="button"
+                    title="Delete channel (owner only)"
+                    onClick={() => deleteChannel(channel.id, channel.name)}
+                    className="hive-icon-btn"
+                  >
+                    ✕
+                  </button>
+                </span>
+              </div>
             ))}
           </nav>
           <div className="border-t p-3" style={{ borderColor: "var(--line)" }}>
@@ -220,17 +339,28 @@ export function Workspace({ client, identity, onLeave }: Props) {
             {messages.map((message) => (
               <div key={message.id} className="mb-3">
                 <div className="flex items-baseline gap-2">
-                  <span
-                    className="hive-mono"
-                    style={{
-                      color:
-                        message.pubkey === identity.pubkey
-                          ? "var(--honey)"
-                          : "var(--phase)",
-                    }}
-                  >
-                    {shortKey(message.pubkey)}
-                  </span>
+                  {(() => {
+                    const who = displayName(
+                      message.pubkey,
+                      profiles,
+                      identity.pubkey,
+                    );
+                    return (
+                      <span className="flex items-baseline gap-1">
+                        <span
+                          style={{
+                            color: who.isSelf ? "var(--honey)" : "var(--phase)",
+                            fontWeight: 500,
+                          }}
+                        >
+                          {who.isSelf ? "you" : who.name}
+                        </span>
+                        <span className="hive-key-tag hive-mono">
+                          ·{who.tag}
+                        </span>
+                      </span>
+                    );
+                  })()}
                   <span
                     className="text-[0.65rem]"
                     style={{ color: "var(--drift)" }}
@@ -284,6 +414,8 @@ export function Workspace({ client, identity, onLeave }: Props) {
           </div>
         </main>
       </div>
+
+      <StatusLine client={client} />
     </div>
   );
 }
