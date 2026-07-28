@@ -63,6 +63,10 @@ pub enum WorkflowError {
     /// The action is defined but not yet implemented.
     #[error("action not implemented: {0}")]
     NotImplemented(String),
+
+    /// A non-webhook action side-effect failed (e.g. a Kannaka memory call).
+    #[error("action error: {0}")]
+    ActionError(String),
 }
 
 impl From<buzz_db::error::DbError> for WorkflowError {

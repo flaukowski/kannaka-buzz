@@ -1694,6 +1694,32 @@ steps:
         assert!(hook.requires_elevated_authority());
     }
 
+    #[test]
+    fn kannaka_actions_parse_and_gate() {
+        // kannaka_recall brings estate memory INTO the channel — no channel
+        // content leaves, so plain membership suffices.
+        let (recall, _) = WorkflowEngine::parse_yaml(concat!(
+            "name: recall\n",
+            "trigger:\n  on: message_posted\n",
+            "steps:\n  - id: s1\n    action: kannaka_recall\n    query: \"{{trigger.text}}\"\n",
+            "  - id: s2\n    action: send_message\n    text: \"{{steps.s1.output.memories}}\"\n",
+        ))
+        .expect("parse recall");
+        assert!(!recall.requires_elevated_authority());
+
+        // kannaka_remember persists channel content into the estate memory
+        // store — same standing-authority exfiltration shape as call_webhook
+        // (SEC-006), so it requires elevated authority.
+        let (remember, _) = WorkflowEngine::parse_yaml(concat!(
+            "name: remember\n",
+            "trigger:\n  on: message_posted\n",
+            "steps:\n  - id: s1\n    action: kannaka_remember\n",
+            "    text: \"{{trigger.text}}\"\n    category: hive\n",
+        ))
+        .expect("parse remember");
+        assert!(remember.requires_elevated_authority());
+    }
+
     // -- SEC-006: event-path regression (requires Postgres) ----------------
 
     async fn setup_db() -> buzz_db::Db {
