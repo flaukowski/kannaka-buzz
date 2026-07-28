@@ -144,20 +144,45 @@ pub enum ActionDef {
         /// Duration string (e.g. `"5m"`, `"1h"`).
         duration: String,
     },
+    /// Store text in the estate's Kannaka HRM memory service
+    /// (wave-interference long-term memory; see docs/KANNAKA.md).
+    KannakaRemember {
+        /// Text to store (supports template variables).
+        text: String,
+        /// Optional category label.
+        #[serde(default)]
+        category: Option<String>,
+    },
+    /// Associative recall from Kannaka HRM memory. The recalled memories are
+    /// this step's output, available to later steps as
+    /// `{{steps.<id>.output.memories}}`.
+    KannakaRecall {
+        /// Query text (supports template variables).
+        query: String,
+        /// Maximum results to return (default 5, capped at 25).
+        #[serde(default)]
+        top_k: Option<usize>,
+    },
 }
 
 impl WorkflowDef {
     /// True when any step performs an action that can exfiltrate channel data
-    /// to an arbitrary external destination (`call_webhook`).
+    /// to a destination outside the channel (`call_webhook`, or
+    /// `kannaka_remember`, which persists channel content into the estate's
+    /// HRM memory store where other agents and sessions can recall it).
     ///
     /// Definitions with such steps require elevated (owner/admin) channel
     /// authority both to save and to run — plain membership is not enough,
     /// because a workflow forwards channel content with the *owner's* standing
-    /// authority long after the save (SEC-006).
+    /// authority long after the save (SEC-006). `kannaka_recall` is not gated:
+    /// no channel content leaves the channel.
     pub fn requires_elevated_authority(&self) -> bool {
-        self.steps
-            .iter()
-            .any(|s| matches!(s.action, ActionDef::CallWebhook { .. }))
+        self.steps.iter().any(|s| {
+            matches!(
+                s.action,
+                ActionDef::CallWebhook { .. } | ActionDef::KannakaRemember { .. }
+            )
+        })
     }
 
     /// Validate the workflow definition. Returns `Err` with a descriptive message

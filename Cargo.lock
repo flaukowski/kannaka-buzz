@@ -1281,6 +1281,7 @@ version = "0.1.0"
 dependencies = [
  "buzz-core",
  "buzz-db",
+ "buzz-kannaka",
  "chrono",
  "cron",
  "dashmap",

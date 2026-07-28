@@ -448,6 +448,14 @@ pub fn resolve_step_templates(
         Delay { duration } => Ok(Delay {
             duration: duration.clone(),
         }),
+        KannakaRemember { text, category } => Ok(KannakaRemember {
+            text: t(text)?,
+            category: t_opt(category)?,
+        }),
+        KannakaRecall { query, top_k } => Ok(KannakaRecall {
+            query: t(query)?,
+            top_k: *top_k,
+        }),
     }
 }
 
@@ -685,6 +693,37 @@ pub async fn dispatch_action(
             Ok(StepResult::Completed(
                 serde_json::json!({ "slept_secs": secs }),
             ))
+        }
+
+        KannakaRemember { text, category } => {
+            use buzz_kannaka::MemoryService;
+            info!(run_id = %run_id, step = step_id, "KannakaRemember ({} chars)", text.len());
+            let opts = buzz_kannaka::RememberOptions {
+                category: category.clone(),
+                ..Default::default()
+            };
+            let id = buzz_kannaka::KannakaCli::new()
+                .remember(text, opts)
+                .await
+                .map_err(|e| WorkflowError::ActionError(format!("kannaka_remember: {e}")))?;
+            Ok(StepResult::Completed(serde_json::json!({
+                "remembered": true,
+                "memory_id": id.to_string(),
+            })))
+        }
+
+        KannakaRecall { query, top_k } => {
+            use buzz_kannaka::MemoryService;
+            let k = top_k.unwrap_or(5).clamp(1, 25);
+            info!(run_id = %run_id, step = step_id, "KannakaRecall top_k={k}");
+            let results = buzz_kannaka::KannakaCli::new()
+                .recall(query, k)
+                .await
+                .map_err(|e| WorkflowError::ActionError(format!("kannaka_recall: {e}")))?;
+            Ok(StepResult::Completed(serde_json::json!({
+                "count": results.len(),
+                "memories": results,
+            })))
         }
     }
 }

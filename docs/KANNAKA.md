@@ -55,8 +55,12 @@ and docs. We do not patch `buzz-core` / `buzz-relay` internals.
    `crates/buzz-kannaka` wraps the `kannaka` CLI per kannaka-memory's
    ADR-0016 contract (JSON stdout) behind an async `MemoryService`
    trait; an in-process backend linking `kannaka-memory` directly is a
-   later optimization behind the same trait. Wiring into `buzz-acp`
-   agent sessions and workflow steps is the next increment.
+   later optimization behind the same trait. Wired into agent sessions
+   via `buzz-dev-mcp` tools (`kannaka_remember` / `kannaka_recall` /
+   `kannaka_status` — every ACP harness session gets them) and into the
+   workflow engine as `kannaka_remember` / `kannaka_recall` step
+   actions (`kannaka_remember` requires elevated channel authority,
+   same SEC-006 shape as `call_webhook`).
 2. **kannaka-tui as a native terminal client (planned).** Upstream ships
    desktop (Tauri) and mobile clients but no TUI.
    [kannaka-tui](https://github.com/NickFlach/kannaka-tui) — an
