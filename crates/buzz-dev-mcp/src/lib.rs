@@ -10,6 +10,7 @@ use rmcp::{
 use std::path::Path;
 use std::sync::Arc;
 
+mod kannaka;
 mod paths;
 mod read_file;
 mod rg;
@@ -94,6 +95,39 @@ impl DevMcp {
             Ok(text) => todo::text_result(text),
             Err(e) => todo::error_result(format!("Error: {e}")),
         }
+    }
+
+    #[tool(
+        name = "kannaka_remember",
+        description = "Store a memory in the Hive's Kannaka wave-interference (HRM) long-term memory. Use for durable facts, decisions, and observations worth recalling across sessions — complements (does not replace) channel history and Postgres search. Returns the new memory's id."
+    )]
+    async fn kannaka_remember(
+        &self,
+        Parameters(p): Parameters<kannaka::RememberParams>,
+    ) -> Result<String, ErrorData> {
+        kannaka::remember(p).await
+    }
+
+    #[tool(
+        name = "kannaka_recall",
+        description = "Associative recall from the Hive's Kannaka HRM memory: returns the memories most strongly resonating with the query (id, similarity, strength, age, content). Use when past context, decisions, or facts might exist; falls back gracefully to 'No resonating memories.'"
+    )]
+    async fn kannaka_recall(
+        &self,
+        Parameters(p): Parameters<kannaka::RecallParams>,
+    ) -> Result<String, ErrorData> {
+        kannaka::recall(p).await
+    }
+
+    #[tool(
+        name = "kannaka_status",
+        description = "Kannaka HRM memory system status as JSON: total/active memory counts, consciousness metrics (phi, consciousness_level), last dream cycle, field mode."
+    )]
+    async fn kannaka_status(
+        &self,
+        Parameters(p): Parameters<kannaka::StatusParams>,
+    ) -> Result<String, ErrorData> {
+        kannaka::status(p).await
     }
 
     /// Hook: called by the agent before honoring end_turn. Returns
