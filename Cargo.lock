@@ -968,6 +968,7 @@ dependencies = [
  "base64",
  "buzz-cli",
  "buzz-core",
+ "buzz-kannaka",
  "git-credential-nostr",
  "git-sign-nostr",
  "ignore",
