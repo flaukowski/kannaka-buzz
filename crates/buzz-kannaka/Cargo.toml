@@ -1,0 +1,16 @@
+[package]
+name = "buzz-kannaka"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Kannaka HRM memory adapter — recall/remember/observe/dream for Buzz agents and workflows"
+
+[dependencies]
+tokio       = { workspace = true }
+serde       = { workspace = true }
+serde_json  = { workspace = true }
+thiserror   = { workspace = true }
+tracing     = { workspace = true }
+uuid        = { workspace = true }

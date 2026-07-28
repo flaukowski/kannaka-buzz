@@ -48,10 +48,15 @@ The estate's three-layer topology:
 All additions are **additive** — new crates, clients, adapters, config,
 and docs. We do not patch `buzz-core` / `buzz-relay` internals.
 
-1. **`buzz-kannaka` adapter crate (planned).** Exposes HRM memory
+1. **`buzz-kannaka` adapter crate (v0 landed).** Exposes HRM memory
    (recall / remember / observe / dream) to agents and workflows as a
    first-class memory service. The workspace's long-term memory becomes
    wave interference; Postgres FTS stays the verbatim complement.
+   `crates/buzz-kannaka` wraps the `kannaka` CLI per kannaka-memory's
+   ADR-0016 contract (JSON stdout) behind an async `MemoryService`
+   trait; an in-process backend linking `kannaka-memory` directly is a
+   later optimization behind the same trait. Wiring into `buzz-acp`
+   agent sessions and workflow steps is the next increment.
 2. **kannaka-tui as a native terminal client (planned).** Upstream ships
    desktop (Tauri) and mobile clients but no TUI.
    [kannaka-tui](https://github.com/NickFlach/kannaka-tui) — an
