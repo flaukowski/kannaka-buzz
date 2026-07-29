@@ -36,8 +36,8 @@ const TOKENS = [
   "--buzz-gradient-light-bottom",
   "--buzz-gradient-dark-top",
   "--buzz-gradient-dark-bottom",
-  "--buzz-active-fill",
-  "--buzz-active-surface",
+  // NB the active-pill tokens are intentionally absent — see ACTIVE_PILL_TOKENS
+  // below, which asserts the opposite: that we never override them.
   "--primary",
   "--primary-foreground",
   "--sidebar-primary",
@@ -119,6 +119,31 @@ if (!components.includes(LANDING_SELECTOR)) {
     `components.css no longer contains "${LANDING_SELECTOR}" — the landing screen changed ` +
       "how it scopes its tokens, so the purple tint is scoped to a selector that never matches.",
   );
+}
+
+/*
+ * Upstream E2E specs PIN brand colours as literals, so re-tinting a token
+ * silently breaks tests that live nowhere near the stylesheet. Two rules fell
+ * out of doing it the hard way:
+ *
+ *   - identity-lost.spec.ts asserts the landing fill and gradient stops. Those
+ *     are brand pins, so they move with the brand — we edit them and accept the
+ *     divergence.
+ *   - buzz-theme-screenshots.spec.ts pins the neutral active-pill surface. We
+ *     do NOT re-tint that, so this must stay unedited.
+ *
+ * Assert the second rule mechanically: if the overlay ever touches the
+ * active-pill tokens again, fail here rather than 12 minutes into CI.
+ */
+const ACTIVE_PILL_TOKENS = ["--buzz-active-fill", "--buzz-active-surface"];
+for (const token of ACTIVE_PILL_TOKENS) {
+  if (declares(overlay, token)) {
+    problems.push(
+      `${token} is overridden in kannaka-theme.css, which breaks ` +
+        "buzz-theme-screenshots.spec.ts — it pins the neutral surface exactly. " +
+        "Leave the active pill to upstream; the gradient and accent carry the brand.",
+    );
+  }
 }
 
 // The overlay only wins on source order if it is imported after theme.css.
