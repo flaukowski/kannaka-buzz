@@ -15,5 +15,7 @@
 @import "./globals/image-lightbox.css";
 @import "./globals/video-review.css";
 @import "./globals/progress.css";
+/* Kannaka brand overlay (ADR-0052 Tier 2) — must stay last so it wins on source order. */
+@import "./globals/kannaka-theme.css";
 
 @config "../../../tailwind.config.js";

@@ -1,0 +1,77 @@
+/*
+ * Kannaka theme overlay — ADR-0052 Tier 2 ("badge and stripes").
+ *
+ * Re-tints Buzz's own brand layer in the Kannaka palette. This is additive:
+ * no component is edited, and the only upstream change is the `@import` that
+ * pulls this file in from globals.css.
+ *
+ * SCOPE — deliberately `:root[data-buzz-sidebar]`, the same selector Buzz uses
+ * for its own brand tokens. ThemeProvider sets that attribute only while the
+ * Buzz theme is active, so this re-tints THE BUZZ THEME and nothing else. A
+ * user who picks Catppuccin or GitHub Light still gets stock Catppuccin or
+ * GitHub Light. We are painting one car, not repainting the showroom.
+ *
+ * CASCADE — these rules are UNLAYERED, matching the reasoning in theme.css:
+ * unlayered declarations beat anything in `@layer base` (where the stock
+ * `:root` / `.dark` palettes live) and anything in Tailwind's `utilities`
+ * layer, so no `!important` is needed. `:root[data-buzz-sidebar]` also
+ * out-specifies the bare `:root` these tokens are declared on. Source order
+ * puts this import last, so among equals we win.
+ *
+ * PALETTE (shared with the /hive web client, ADR-0045):
+ *   abyss      #0B0E14   deepest ground
+ *   depth      #131826   raised surface
+ *   line       #232B3D   borders
+ *   foam       #E8EDF7   primary text
+ *   drift      #8A94AD   muted text
+ *   honey      #E8B84B   THE one action colour
+ *   phase-teal #5EE0C6   reserved: live + agent signals only
+ *   danger     #E8756B
+ *
+ * Values are space-separated HSL triplets because Tailwind wraps them in
+ * `hsl(...)` at the point of use — the gradient endpoints are the exception,
+ * as Buzz declares those as literal hex.
+ *
+ * If you rename or add a token here, update TOKENS in
+ * desktop/scripts/check-kannaka-theme.mjs — that check fails the branded build
+ * when an upstream rename would otherwise make this file silently no-op.
+ */
+
+/* ── Light ─────────────────────────────────────────────────────────────── */
+:root[data-buzz-sidebar] {
+  /*
+   * The signature gradient. Buzz paints a warm top fading to a cool bottom
+   * across the whole app surface; we keep that exact grammar — it is what makes
+   * the app read as Buzz — and swap the pigments for pale honey over pale foam.
+   */
+  --buzz-gradient-light-top: #f5e4b8;
+  --buzz-gradient-light-bottom: #dce3f0;
+
+  /* Honey is the action colour. Dark ink on honey, never white — honey is a
+     light hue and white-on-honey fails contrast at every usable lightness. */
+  --primary: 42 77% 52%;
+  --primary-foreground: 224 33% 11%;
+  --sidebar-primary: 42 77% 52%;
+  --sidebar-primary-foreground: 224 33% 11%;
+  --ring: 42 77% 52%;
+
+  /* Selection/active chrome picks up the same honey rather than neutral black. */
+  --buzz-active-fill: 42 77% 30%;
+  --buzz-active-surface: color-mix(in srgb, hsl(var(--buzz-active-fill)) 12%, transparent);
+}
+
+/* ── Dark ──────────────────────────────────────────────────────────────── */
+:root[data-buzz-sidebar].dark {
+  /* Same warm-over-cool ramp: honey shadow falling into abyss. */
+  --buzz-gradient-dark-top: #3a2e10;
+  --buzz-gradient-dark-bottom: #0b0e14;
+
+  --primary: 42 77% 60%;
+  --primary-foreground: 220 29% 6%;
+  --sidebar-primary: 42 77% 60%;
+  --sidebar-primary-foreground: 220 29% 6%;
+  --ring: 42 77% 60%;
+
+  --buzz-active-fill: 42 77% 60%;
+  --buzz-active-surface: color-mix(in srgb, hsl(var(--buzz-active-fill)) 16%, transparent);
+}
