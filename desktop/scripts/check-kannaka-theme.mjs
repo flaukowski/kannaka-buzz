@@ -70,18 +70,20 @@ for (const token of TOKENS) {
   if (!declares(theme, token)) {
     problems.push(
       `${token} is no longer declared in theme.css — the overlay's override is dead. ` +
-      `Find its replacement upstream, update kannaka-theme.css, then update TOKENS here.`,
+        `Find its replacement upstream, update kannaka-theme.css, then update TOKENS here.`,
     );
   }
   if (!declares(overlay, token)) {
-    problems.push(`${token} is listed in TOKENS but not declared in kannaka-theme.css — TOKENS is stale.`);
+    problems.push(
+      `${token} is listed in TOKENS but not declared in kannaka-theme.css — TOKENS is stale.`,
+    );
   }
 }
 
 if (!theme.includes(SELECTOR)) {
   problems.push(
     `theme.css no longer contains "${SELECTOR}" — Buzz changed how it scopes brand tokens, ` +
-    "so the overlay is scoped to a selector that never matches.",
+      "so the overlay is scoped to a selector that never matches.",
   );
 }
 
@@ -89,9 +91,13 @@ if (!theme.includes(SELECTOR)) {
 const overlayImport = globals.indexOf("kannaka-theme.css");
 const themeImport = globals.indexOf("globals/theme.css");
 if (overlayImport === -1) {
-  problems.push("globals.css does not import kannaka-theme.css — the overlay is never loaded.");
+  problems.push(
+    "globals.css does not import kannaka-theme.css — the overlay is never loaded.",
+  );
 } else if (themeImport !== -1 && overlayImport < themeImport) {
-  problems.push("globals.css imports kannaka-theme.css BEFORE theme.css — stock values would win.");
+  problems.push(
+    "globals.css imports kannaka-theme.css BEFORE theme.css — stock values would win.",
+  );
 }
 
 if (problems.length) {
@@ -101,4 +107,6 @@ if (problems.length) {
   process.exit(1);
 }
 
-console.log(`kannaka-theme check OK — ${TOKENS.length} tokens still declared upstream, overlay imported last.`);
+console.log(
+  `kannaka-theme check OK — ${TOKENS.length} tokens still declared upstream, overlay imported last.`,
+);

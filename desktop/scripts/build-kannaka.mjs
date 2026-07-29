@@ -31,7 +31,12 @@ const CONFIG = "src-tauri/tauri.kannaka.conf.json";
 
 const run = (cmd, args, opts = {}) => {
   console.log(`\n$ ${cmd} ${args.join(" ")}`);
-  const res = spawnSync(cmd, args, { stdio: "inherit", cwd: DESKTOP, shell: process.platform === "win32", ...opts });
+  const res = spawnSync(cmd, args, {
+    stdio: "inherit",
+    cwd: DESKTOP,
+    shell: process.platform === "win32",
+    ...opts,
+  });
   if (res.error) {
     console.error(`failed to run ${cmd}: ${res.error.message}`);
     process.exit(1);
