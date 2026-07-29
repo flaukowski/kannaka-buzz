@@ -83,3 +83,52 @@
     transparent
   );
 }
+
+/* ── Landing / onboarding ──────────────────────────────────────────────────
+ *
+ * The welcome screen does NOT carry `data-buzz-sidebar` — it renders before a
+ * workspace theme is resolved — so the rules above never reach it. It has its
+ * own scope, `.buzz-onboarding-neutral-theme`, which is where Buzz declares the
+ * landing tokens. We override there.
+ *
+ * Unlayered again, and that matters more here: the stock declarations live in
+ * `@layer components`, so an unlayered rule wins on the layer alone and does
+ * not depend on out-specifying anything.
+ *
+ * Chartreuse -> Kannaka violet, the family shared by Kannaka Radio and the
+ * Observatory (#8b5cf6 / #a78bfa / #c084fc over #1a1a2e). Kept in the LIGHT
+ * half of that family deliberately: the Buzz wordmark is solid black artwork,
+ * and a Radio-style near-black violet field would swallow it. This reads as
+ * Kannaka purple while the mark stays legible.
+ */
+.buzz-onboarding-neutral-theme {
+  --buzz-welcome-chartreuse: #a78bfa;
+  --buzz-onboarding-shell-bottom: #ddd6fe;
+
+  /* Crest palette — gold on violet, with the jewel picking up the deep end. */
+  --kannaka-crown-gold: #e8b84b;
+  --kannaka-crown-edge: #b8862a;
+  --kannaka-crown-jewel: #5b21b6;
+  --kannaka-crest-ink: #4c1d95;
+}
+
+/*
+ * The crest overlays the wordmark in the PNG's own coordinate space, extended
+ * upward by 70px of headroom for the crown — so it is inset to the image box
+ * and then grown to match that taller viewBox. Percentages, not pixels, so the
+ * lockup holds together at every render width.
+ */
+.kannaka-crest-frame {
+  position: relative;
+  display: block;
+}
+
+.kannaka-crest {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  /* -70/326 and 396/326: the headroom expressed against the artwork height. */
+  top: -21.472%;
+  height: 121.472%;
+  pointer-events: none;
+}

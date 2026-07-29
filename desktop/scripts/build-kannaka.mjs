@@ -29,12 +29,21 @@
  * Any extra arguments are forwarded to `tauri build`, e.g. `--debug`.
  */
 import { spawnSync } from "node:child_process";
-import { closeSync, existsSync, mkdirSync, openSync } from "node:fs";
+import {
+  closeSync,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  statSync,
+} from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DESKTOP = join(HERE, "..");
+/** Workspace root — the sidecar crates live here, not under desktop/. */
+const REPO = join(DESKTOP, "..");
 const CONFIG = "src-tauri/tauri.kannaka.conf.json";
 
 /** Must stay in sync with `externalBin` in tauri.conf.json. */
@@ -47,16 +56,36 @@ const SIDECARS = [
 ];
 
 /**
+ * The Hive is this build's home relay (ADR-0045). Upstream already exposes
+ * every seam needed for that, so tying the two together costs NO code:
+ *
+ *   BUZZ_RELAY_URL / BUZZ_RELAY_HTTP     baked in by build.rs as the default
+ *                                        relay, still overridable at runtime by
+ *                                        the same env vars and by a workspace
+ *                                        override, which win over the build.
+ *   BUZZ_BUILD_AUTO_CONNECT_DEFAULT_RELAY  connect on first run instead of
+ *                                        making the user pick a community.
+ *
+ * Override any of them in the environment to point a build somewhere else.
+ */
+const HIVE_DEFAULTS = {
+  BUZZ_RELAY_URL: "wss://buzz.ninja-portal.com",
+  BUZZ_RELAY_HTTP: "https://buzz.ninja-portal.com",
+  BUZZ_BUILD_AUTO_CONNECT_DEFAULT_RELAY: "1",
+};
+
+/**
  * `shell` is opt-in per call, not global. On Windows a shell is needed to
  * resolve `pnpm` (a .cmd shim), but running node through a shell breaks on the
  * space in "C:\Program Files\nodejs\node.exe" — cmd.exe splits the path.
  */
-const run = (cmd, args, { useShell = false } = {}) => {
+const run = (cmd, args, { useShell = false, cwd = DESKTOP, env } = {}) => {
   console.log(`\n$ ${cmd} ${args.join(" ")}`);
   const res = spawnSync(cmd, args, {
     stdio: "inherit",
-    cwd: DESKTOP,
+    cwd,
     shell: useShell,
+    env,
   });
   if (res.error) {
     console.error(`failed to run ${cmd}: ${res.error.message}`);
@@ -68,18 +97,7 @@ const run = (cmd, args, { useShell = false } = {}) => {
 // Guard first — a failed overlay must stop the build, not ship stock colours.
 run(process.execPath, [join(HERE, "check-kannaka-theme.mjs")]);
 
-/**
- * Tauri validates every `externalBin` entry exists at compile time, so the
- * sidecars must be present before the build starts. This mirrors upstream's
- * own `just desktop-release-build`, which touches empty placeholders for a
- * local unsigned build; the real binaries are swapped in by the signed release
- * pipeline.
- *
- * Consequence worth knowing: in a build produced this way the BUNDLED sidecars
- * are empty, so anything depending on them is inert. The Kannaka harness is
- * unaffected — it points at an absolute path outside the bundle.
- */
-function stageSidecarStubs() {
+function hostTriple() {
   const probe = spawnSync("rustc", ["-vV"], { encoding: "utf8" });
   const target = probe.stdout?.match(/^host:\s*(.+)$/m)?.[1]?.trim();
   if (!target) {
@@ -88,33 +106,90 @@ function stageSidecarStubs() {
     );
     process.exit(1);
   }
+  return target;
+}
+
+const sidecarPath = (dir, bin, target) =>
+  join(dir, `${bin}-${target}${process.platform === "win32" ? ".exe" : ""}`);
+
+/**
+ * Build the sidecars from the workspace and stage them under their
+ * target-triple names.
+ *
+ * These are NOT optional garnish. `buzz-acp` is the host that spawns every ACP
+ * harness — and the desktop resolves it from beside its own executable BEFORE
+ * falling back to PATH (agent_auth.rs), testing only that the file exists. A
+ * zero-byte placeholder therefore wins that lookup and every agent silently
+ * fails to start, Kannaka included. `buzz` is how an agent posts replies into a
+ * channel; `git-credential-nostr` authenticates git over NIP-98.
+ */
+function stageSidecars({ stub }) {
+  const target = hostTriple();
   const dir = join(DESKTOP, "src-tauri", "binaries");
   mkdirSync(dir, { recursive: true });
-  const created = [];
-  for (const bin of SIDECARS) {
-    const p = join(
-      dir,
-      `${bin}-${target}${process.platform === "win32" ? ".exe" : ""}`,
-    );
-    if (!existsSync(p)) {
-      closeSync(openSync(p, "w"));
-      created.push(`${bin}-${target}`);
+
+  if (stub) {
+    const created = [];
+    for (const bin of SIDECARS) {
+      const p = sidecarPath(dir, bin, target);
+      if (!existsSync(p)) {
+        closeSync(openSync(p, "w"));
+        created.push(bin);
+      }
     }
-  }
-  if (created.length) {
     console.warn(
-      `\nwarning: staged ${created.length} EMPTY sidecar placeholder(s): ${created.join(", ")}.\n` +
-        "  This matches upstream's local unsigned-build recipe. The bundled sidecars\n" +
-        "  are inert; build them for real before distributing this bundle.",
+      `\nwarning: --stub-sidecars staged EMPTY placeholders (${created.join(", ") || "all present"}).\n` +
+        "  Agents will NOT run in this bundle. Use only for UI-only builds.",
     );
+    return;
+  }
+
+  const cargoTarget = process.env.CARGO_TARGET_DIR
+    ? process.env.CARGO_TARGET_DIR
+    : join(REPO, "target");
+  run(
+    "cargo",
+    ["build", "--release", ...SIDECARS.flatMap((bin) => ["--bin", bin])],
+    { cwd: REPO, useShell: process.platform === "win32" },
+  );
+
+  for (const bin of SIDECARS) {
+    const built = join(
+      cargoTarget,
+      "release",
+      `${bin}${process.platform === "win32" ? ".exe" : ""}`,
+    );
+    if (!existsSync(built)) {
+      console.error(`sidecar ${bin} did not build to ${built}`);
+      process.exit(1);
+    }
+    const staged = sidecarPath(dir, bin, target);
+    copyFileSync(built, staged);
+    const { size } = statSync(staged);
+    if (size === 0) {
+      console.error(`staged sidecar ${bin} is empty — refusing to bundle it`);
+      process.exit(1);
+    }
+    console.log(`  sidecar ${bin} -> ${(size / 1024 / 1024).toFixed(1)} MB`);
   }
 }
 
-stageSidecarStubs();
+stageSidecars({ stub: process.argv.includes("--stub-sidecars") });
 
-const forwarded = process.argv.slice(2);
+// Ambient env wins, so a build can be pointed at another relay without edits.
+const buildEnv = { ...process.env };
+for (const [key, value] of Object.entries(HIVE_DEFAULTS)) {
+  buildEnv[key] ??= value;
+}
+console.log(
+  `\nrelay     : ${buildEnv.BUZZ_RELAY_URL}` +
+    `\nautoconnect: ${buildEnv.BUZZ_BUILD_AUTO_CONNECT_DEFAULT_RELAY === "1" ? "on" : "off"}`,
+);
+
+const forwarded = process.argv.slice(2).filter((a) => a !== "--stub-sidecars");
 run("pnpm", ["exec", "tauri", "build", "--config", CONFIG, ...forwarded], {
   useShell: process.platform === "win32",
+  env: buildEnv,
 });
 
 console.log("\nKannaka Buzz bundle built.");

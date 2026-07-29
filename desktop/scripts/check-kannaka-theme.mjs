@@ -24,6 +24,7 @@ const DESKTOP = join(HERE, "..");
 const THEME = join(DESKTOP, "src/shared/styles/globals/theme.css");
 const OVERLAY = join(DESKTOP, "src/shared/styles/globals/kannaka-theme.css");
 const GLOBALS = join(DESKTOP, "src/shared/styles/globals.css");
+const COMPONENTS = join(DESKTOP, "src/shared/styles/globals/components.css");
 
 /**
  * Tokens the overlay redefines. Each must still be DECLARED in upstream's
@@ -44,12 +45,23 @@ const TOKENS = [
   "--ring",
 ];
 
-/** The selector the overlay's scoping strategy depends on. */
+/**
+ * Landing-screen tokens. These live in components.css under a DIFFERENT scope
+ * (`.buzz-onboarding-neutral-theme`), because the welcome screen renders before
+ * a workspace theme exists and never carries `data-buzz-sidebar`.
+ */
+const LANDING_TOKENS = [
+  "--buzz-welcome-chartreuse",
+  "--buzz-onboarding-shell-bottom",
+];
+
+/** Selectors the overlay's scoping strategy depends on, and where each lives. */
 const SELECTOR = ":root[data-buzz-sidebar]";
+const LANDING_SELECTOR = ".buzz-onboarding-neutral-theme";
 
 const problems = [];
 
-for (const file of [THEME, OVERLAY, GLOBALS]) {
+for (const file of [THEME, OVERLAY, GLOBALS, COMPONENTS]) {
   if (!existsSync(file)) problems.push(`missing file: ${file}`);
 }
 if (problems.length) {
@@ -61,6 +73,7 @@ if (problems.length) {
 const theme = readFileSync(THEME, "utf8");
 const overlay = readFileSync(OVERLAY, "utf8");
 const globals = readFileSync(GLOBALS, "utf8");
+const components = readFileSync(COMPONENTS, "utf8");
 
 // A declaration, not merely a mention: `--token:` with optional whitespace.
 const declares = (css, token) =>
@@ -80,10 +93,31 @@ for (const token of TOKENS) {
   }
 }
 
+for (const token of LANDING_TOKENS) {
+  if (!declares(components, token)) {
+    problems.push(
+      `${token} is no longer declared in components.css — the landing overlay is dead, ` +
+        "so the welcome screen would silently revert to stock chartreuse.",
+    );
+  }
+  if (!declares(overlay, token)) {
+    problems.push(
+      `${token} is listed in LANDING_TOKENS but not declared in kannaka-theme.css.`,
+    );
+  }
+}
+
 if (!theme.includes(SELECTOR)) {
   problems.push(
     `theme.css no longer contains "${SELECTOR}" — Buzz changed how it scopes brand tokens, ` +
       "so the overlay is scoped to a selector that never matches.",
+  );
+}
+
+if (!components.includes(LANDING_SELECTOR)) {
+  problems.push(
+    `components.css no longer contains "${LANDING_SELECTOR}" — the landing screen changed ` +
+      "how it scopes its tokens, so the purple tint is scoped to a selector that never matches.",
   );
 }
 
@@ -108,5 +142,5 @@ if (problems.length) {
 }
 
 console.log(
-  `kannaka-theme check OK — ${TOKENS.length} tokens still declared upstream, overlay imported last.`,
+  `kannaka-theme check OK — ${TOKENS.length + LANDING_TOKENS.length} tokens still declared upstream, overlay imported last.`,
 );
