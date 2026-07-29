@@ -42,12 +42,19 @@
   /*
    * The signature gradient. Buzz paints a warm top fading to a cool bottom
    * across the whole app surface; we keep that exact grammar — it is what makes
-   * the app read as Buzz — and swap the pigments for pale honey over pale foam.
+   * the app read as Buzz — and swap the pigments for Kannaka violet.
+   *
+   * Lighter than the landing field on purpose. This gradient is CHROME: the
+   * sidebar, rail and top bar carry text and icons directly on it, so it has to
+   * stay a backdrop. The landing screen can be bold because nothing but the
+   * wordmark sits on it. Same family, two jobs.
    */
-  --buzz-gradient-light-top: #f5e4b8;
-  --buzz-gradient-light-bottom: #dce3f0;
+  --buzz-gradient-light-top: #c9b3f7;
+  --buzz-gradient-light-bottom: #ddd6fe;
 
-  /* Honey is the action colour. Dark ink on honey, never white — honey is a
+  /* Honey stays the action colour ON PURPOSE. Gold on violet is the crown's own
+     pairing, and a violet accent on violet chrome would flatten every
+     affordance into the background. Dark ink on honey, never white — honey is a
      light hue and white-on-honey fails contrast at every usable lightness. */
   --primary: 42 77% 52%;
   --primary-foreground: 224 33% 11%;
@@ -66,8 +73,10 @@
 
 /* ── Dark ──────────────────────────────────────────────────────────────── */
 :root[data-buzz-sidebar].dark {
-  /* Same warm-over-cool ramp: honey shadow falling into abyss. */
-  --buzz-gradient-dark-top: #3a2e10;
+  /* Same ramp, night side: deep violet falling into abyss. This is where the
+     Radio/Observatory look actually lives — dark violet over near-black — and
+     it works here because app chrome supplies its own light foreground. */
+  --buzz-gradient-dark-top: #2e1b4d;
   --buzz-gradient-dark-bottom: #0b0e14;
 
   --primary: 42 77% 60%;
