@@ -60,7 +60,9 @@ and docs. We do not patch `buzz-core` / `buzz-relay` internals.
    `kannaka_status` — every ACP harness session gets them) and into the
    workflow engine as `kannaka_remember` / `kannaka_recall` step
    actions (`kannaka_remember` requires elevated channel authority,
-   same SEC-006 shape as `call_webhook`).
+   same SEC-006 shape as `call_webhook`). Recipes — including the
+   Phase 3 "opt-in channel→HRM ingestion" expressed as a plain
+   workflow — live in [kannaka-workflows.md](kannaka-workflows.md).
 2. **kannaka-tui as a native terminal client (planned).** Upstream ships
    desktop (Tauri) and mobile clients but no TUI.
    [kannaka-tui](https://github.com/NickFlach/kannaka-tui) — an
