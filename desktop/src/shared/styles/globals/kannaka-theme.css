@@ -1,0 +1,143 @@
+/*
+ * Kannaka theme overlay — ADR-0052 Tier 2 ("badge and stripes").
+ *
+ * Re-tints Buzz's own brand layer in the Kannaka palette. This is additive:
+ * no component is edited, and the only upstream change is the `@import` that
+ * pulls this file in from globals.css.
+ *
+ * SCOPE — deliberately `:root[data-buzz-sidebar]`, the same selector Buzz uses
+ * for its own brand tokens. ThemeProvider sets that attribute only while the
+ * Buzz theme is active, so this re-tints THE BUZZ THEME and nothing else. A
+ * user who picks Catppuccin or GitHub Light still gets stock Catppuccin or
+ * GitHub Light. We are painting one car, not repainting the showroom.
+ *
+ * CASCADE — these rules are UNLAYERED, matching the reasoning in theme.css:
+ * unlayered declarations beat anything in `@layer base` (where the stock
+ * `:root` / `.dark` palettes live) and anything in Tailwind's `utilities`
+ * layer, so no `!important` is needed. `:root[data-buzz-sidebar]` also
+ * out-specifies the bare `:root` these tokens are declared on. Source order
+ * puts this import last, so among equals we win.
+ *
+ * PALETTE (shared with the /hive web client, ADR-0045):
+ *   abyss      #0B0E14   deepest ground
+ *   depth      #131826   raised surface
+ *   line       #232B3D   borders
+ *   foam       #E8EDF7   primary text
+ *   drift      #8A94AD   muted text
+ *   honey      #E8B84B   THE one action colour
+ *   phase-teal #5EE0C6   reserved: live + agent signals only
+ *   danger     #E8756B
+ *
+ * Values are space-separated HSL triplets because Tailwind wraps them in
+ * `hsl(...)` at the point of use — the gradient endpoints are the exception,
+ * as Buzz declares those as literal hex.
+ *
+ * If you rename or add a token here, update TOKENS in
+ * desktop/scripts/check-kannaka-theme.mjs — that check fails the branded build
+ * when an upstream rename would otherwise make this file silently no-op.
+ */
+
+/* ── Light ─────────────────────────────────────────────────────────────── */
+:root[data-buzz-sidebar] {
+  /*
+   * The signature gradient. Buzz paints a warm top fading to a cool bottom
+   * across the whole app surface; we keep that exact grammar — it is what makes
+   * the app read as Buzz — and swap the pigments for Kannaka violet.
+   *
+   * Lighter than the landing field on purpose. This gradient is CHROME: the
+   * sidebar, rail and top bar carry text and icons directly on it, so it has to
+   * stay a backdrop. The landing screen can be bold because nothing but the
+   * wordmark sits on it. Same family, two jobs.
+   */
+  --buzz-gradient-light-top: #c9b3f7;
+  --buzz-gradient-light-bottom: #ddd6fe;
+
+  /* Honey stays the action colour ON PURPOSE. Gold on violet is the crown's own
+     pairing, and a violet accent on violet chrome would flatten every
+     affordance into the background. Dark ink on honey, never white — honey is a
+     light hue and white-on-honey fails contrast at every usable lightness. */
+  --primary: 42 77% 52%;
+  --primary-foreground: 224 33% 11%;
+  --sidebar-primary: 42 77% 52%;
+  --sidebar-primary-foreground: 224 33% 11%;
+  --ring: 42 77% 52%;
+
+  /* Selection/active chrome picks up the same honey rather than neutral black. */
+  --buzz-active-fill: 42 77% 30%;
+  --buzz-active-surface: color-mix(
+    in srgb,
+    hsl(var(--buzz-active-fill)) 12%,
+    transparent
+  );
+}
+
+/* ── Dark ──────────────────────────────────────────────────────────────── */
+:root[data-buzz-sidebar].dark {
+  /* Same ramp, night side: deep violet falling into abyss. This is where the
+     Radio/Observatory look actually lives — dark violet over near-black — and
+     it works here because app chrome supplies its own light foreground. */
+  --buzz-gradient-dark-top: #2e1b4d;
+  --buzz-gradient-dark-bottom: #0b0e14;
+
+  --primary: 42 77% 60%;
+  --primary-foreground: 220 29% 6%;
+  --sidebar-primary: 42 77% 60%;
+  --sidebar-primary-foreground: 220 29% 6%;
+  --ring: 42 77% 60%;
+
+  --buzz-active-fill: 42 77% 60%;
+  --buzz-active-surface: color-mix(
+    in srgb,
+    hsl(var(--buzz-active-fill)) 16%,
+    transparent
+  );
+}
+
+/* ── Landing / onboarding ──────────────────────────────────────────────────
+ *
+ * The welcome screen does NOT carry `data-buzz-sidebar` — it renders before a
+ * workspace theme is resolved — so the rules above never reach it. It has its
+ * own scope, `.buzz-onboarding-neutral-theme`, which is where Buzz declares the
+ * landing tokens. We override there.
+ *
+ * Unlayered again, and that matters more here: the stock declarations live in
+ * `@layer components`, so an unlayered rule wins on the layer alone and does
+ * not depend on out-specifying anything.
+ *
+ * Chartreuse -> Kannaka violet, the family shared by Kannaka Radio and the
+ * Observatory (#8b5cf6 / #a78bfa / #c084fc over #1a1a2e). Kept in the LIGHT
+ * half of that family deliberately: the Buzz wordmark is solid black artwork,
+ * and a Radio-style near-black violet field would swallow it. This reads as
+ * Kannaka purple while the mark stays legible.
+ */
+.buzz-onboarding-neutral-theme {
+  --buzz-welcome-chartreuse: #a78bfa;
+  --buzz-onboarding-shell-bottom: #ddd6fe;
+
+  /* Crest palette — gold on violet, with the jewel picking up the deep end. */
+  --kannaka-crown-gold: #e8b84b;
+  --kannaka-crown-edge: #b8862a;
+  --kannaka-crown-jewel: #5b21b6;
+  --kannaka-crest-ink: #4c1d95;
+}
+
+/*
+ * The crest overlays the wordmark in the PNG's own coordinate space, extended
+ * upward by 70px of headroom for the crown — so it is inset to the image box
+ * and then grown to match that taller viewBox. Percentages, not pixels, so the
+ * lockup holds together at every render width.
+ */
+.kannaka-crest-frame {
+  position: relative;
+  display: block;
+}
+
+.kannaka-crest {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  /* -70/326 and 396/326: the headroom expressed against the artwork height. */
+  top: -21.472%;
+  height: 121.472%;
+  pointer-events: none;
+}
