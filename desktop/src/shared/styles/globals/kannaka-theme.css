@@ -57,7 +57,11 @@
 
   /* Selection/active chrome picks up the same honey rather than neutral black. */
   --buzz-active-fill: 42 77% 30%;
-  --buzz-active-surface: color-mix(in srgb, hsl(var(--buzz-active-fill)) 12%, transparent);
+  --buzz-active-surface: color-mix(
+    in srgb,
+    hsl(var(--buzz-active-fill)) 12%,
+    transparent
+  );
 }
 
 /* ── Dark ──────────────────────────────────────────────────────────────── */
@@ -73,5 +77,9 @@
   --ring: 42 77% 60%;
 
   --buzz-active-fill: 42 77% 60%;
-  --buzz-active-surface: color-mix(in srgb, hsl(var(--buzz-active-fill)) 16%, transparent);
+  --buzz-active-surface: color-mix(
+    in srgb,
+    hsl(var(--buzz-active-fill)) 16%,
+    transparent
+  );
 }
