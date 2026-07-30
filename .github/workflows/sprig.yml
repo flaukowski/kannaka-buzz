@@ -139,10 +139,22 @@ jobs:
           TITLE="Sprig (rolling)"
           NOTES="Rolling Linux build of Sprig (all-in-one buzz-acp + buzz-agent + buzz-dev-mcp), tracking \`main\` (\`${SHA}\`)."
 
-          gh release edit "$TAG" \
-            --prerelease \
-            --title "$TITLE" \
-            --notes "$NOTES"
+          # Create-or-edit: the rolling release does not exist until the first
+          # push to main creates it, and `gh release edit` fails with "release
+          # not found" rather than creating one. Every run of this job had
+          # failed here.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" \
+              --prerelease \
+              --title "$TITLE" \
+              --notes "$NOTES"
+          else
+            gh release create "$TAG" \
+              --prerelease \
+              --title "$TITLE" \
+              --notes "$NOTES" \
+              --target "$SHA"
+          fi
           gh release upload "$TAG" dist/* --clobber
 
   publish-tag:
