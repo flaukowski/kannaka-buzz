@@ -16,8 +16,11 @@ test("normal first launch uses the already-persisted identity", async ({
 
   const gate = page.getByTestId("machine-onboarding-gate");
   await expect(gate).toBeVisible();
-  await expect(gate).toHaveCSS("background-color", "rgb(215, 215, 46)");
-  // Landing carries a subtle dot-grid pattern over the chartreuse fill.
+  // Kannaka fork: the landing fill is violet (#a78bfa), not upstream's
+  // chartreuse — see globals/kannaka-theme.css. This assertion is a brand pin,
+  // so it moves with the brand.
+  await expect(gate).toHaveCSS("background-color", "rgb(167, 139, 250)");
+  // Landing carries a subtle dot-grid pattern over the violet fill.
   await expect(gate).toHaveCSS("background-image", /radial-gradient/);
   await expect(gate).toHaveCSS("color", "rgb(23, 23, 23)");
   await expect(
@@ -30,10 +33,11 @@ test("normal first launch uses the already-persisted identity", async ({
       name: "Your unique identity key has been created",
     }),
   ).toBeVisible();
-  // Non-landing pages layer the dot grid over the chartreuse→light-blue gradient.
+  // Non-landing pages layer the dot grid over the violet→pale-violet gradient
+  // (#a78bfa → #ddd6fe in the Kannaka fork; upstream ramps chartreuse→blue).
   await expect(gate).toHaveCSS(
     "background-image",
-    /radial-gradient\(.*\), linear-gradient\(.*rgb\(215, 215, 46\).*rgb\(215, 231, 246\)\)/s,
+    /radial-gradient\(.*\), linear-gradient\(.*rgb\(167, 139, 250\).*rgb\(221, 214, 254\)\)/s,
   );
   await expect(gate).toHaveCSS("color", "rgb(23, 23, 23)");
   const commands = await page.evaluate(

@@ -158,7 +158,11 @@ export function MachineOnboardingFlow({
                 className="kannaka-crest-frame w-full max-w-[600px]"
                 role="img"
               >
-                <img alt="" className="w-full" src="/landing/buzz-wordmark.png" />
+                <img
+                  alt=""
+                  className="w-full"
+                  src="/landing/buzz-wordmark.png"
+                />
                 <KannakaCrest className="kannaka-crest" />
               </div>
               <p className="mt-2 max-w-[560px] text-center text-2xl font-normal leading-none text-foreground">

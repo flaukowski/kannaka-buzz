@@ -62,13 +62,17 @@
   --sidebar-primary-foreground: 224 33% 11%;
   --ring: 42 77% 52%;
 
-  /* Selection/active chrome picks up the same honey rather than neutral black. */
-  --buzz-active-fill: 42 77% 30%;
-  --buzz-active-surface: color-mix(
-    in srgb,
-    hsl(var(--buzz-active-fill)) 12%,
-    transparent
-  );
+  /*
+   * `--buzz-active-fill` / `--buzz-active-surface` are deliberately NOT
+   * overridden. Tinting the active pill honey looked marginally nicer and broke
+   * `buzz-theme-screenshots.spec.ts`, which pins the neutral surface exactly
+   * (`rgba(0, 0, 0, 0.07)` / `color(srgb 1 1 1 / 0.16)`).
+   *
+   * Re-tinting them would mean editing an upstream spec that re-conflicts on
+   * every sync, and buying that with a hover state nobody would miss is a bad
+   * trade — the ADR-0052 rule is that divergence has to earn itself. The
+   * gradient and the accent carry the brand; the pill does not.
+   */
 }
 
 /* ── Dark ──────────────────────────────────────────────────────────────── */
@@ -85,12 +89,7 @@
   --sidebar-primary-foreground: 220 29% 6%;
   --ring: 42 77% 60%;
 
-  --buzz-active-fill: 42 77% 60%;
-  --buzz-active-surface: color-mix(
-    in srgb,
-    hsl(var(--buzz-active-fill)) 16%,
-    transparent
-  );
+  /* Active-pill tokens left to upstream — see the note in the light block. */
 }
 
 /* ── Landing / onboarding ──────────────────────────────────────────────────

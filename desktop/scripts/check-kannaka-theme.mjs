@@ -14,7 +14,7 @@
  * Run standalone, or via `node desktop/scripts/build-kannaka.mjs`, which runs
  * it before invoking Tauri.
  */
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -36,8 +36,8 @@ const TOKENS = [
   "--buzz-gradient-light-bottom",
   "--buzz-gradient-dark-top",
   "--buzz-gradient-dark-bottom",
-  "--buzz-active-fill",
-  "--buzz-active-surface",
+  // NB the active-pill tokens are intentionally absent — see ACTIVE_PILL_TOKENS
+  // below, which asserts the opposite: that we never override them.
   "--primary",
   "--primary-foreground",
   "--sidebar-primary",
@@ -119,6 +119,79 @@ if (!components.includes(LANDING_SELECTOR)) {
     `components.css no longer contains "${LANDING_SELECTOR}" — the landing screen changed ` +
       "how it scopes its tokens, so the purple tint is scoped to a selector that never matches.",
   );
+}
+
+/*
+ * Upstream E2E specs PIN brand colours as literals, so re-tinting a token
+ * silently breaks tests that live nowhere near the stylesheet. Two rules fell
+ * out of doing it the hard way:
+ *
+ *   - identity-lost.spec.ts asserts the landing fill and gradient stops. Those
+ *     are brand pins, so they move with the brand — we edit them and accept the
+ *     divergence.
+ *   - buzz-theme-screenshots.spec.ts pins the neutral active-pill surface. We
+ *     do NOT re-tint that, so this must stay unedited.
+ *
+ * Assert the second rule mechanically: if the overlay ever touches the
+ * active-pill tokens again, fail here rather than 12 minutes into CI.
+ */
+const ACTIVE_PILL_TOKENS = ["--buzz-active-fill", "--buzz-active-surface"];
+for (const token of ACTIVE_PILL_TOKENS) {
+  if (declares(overlay, token)) {
+    problems.push(
+      `${token} is overridden in kannaka-theme.css, which breaks ` +
+        "buzz-theme-screenshots.spec.ts — it pins the neutral surface exactly. " +
+        "Leave the active pill to upstream; the gradient and accent carry the brand.",
+    );
+  }
+}
+
+/*
+ * Third time is a rule. Upstream specs pin brand colours as LITERALS, and each
+ * re-tint has been discovered by a 12-minute CI round rather than here. So:
+ * enumerate the upstream values the overlay replaces, in every notation the
+ * specs use, and fail if any spec still expects one.
+ *
+ * A hit means a brand pin was missed — update the spec's expectation to the
+ * Kannaka value (these are deliberate, documented divergences), not the
+ * stylesheet.
+ */
+const SUPERSEDED_LITERALS = [
+  // workspace gradient (theme.css)
+  ["#e6e6b6", "light gradient top"],
+  ["#c4d0da", "light gradient bottom"],
+  ["#4a4616", "dark gradient top"],
+  ["#0a1423", "dark gradient bottom"],
+  // landing fill + ramp (components.css)
+  ["#d7d72e", "welcome chartreuse"],
+  ["rgb(215, 215, 46)", "welcome chartreuse, rgb form"],
+  ["#d7e7f6", "onboarding shell bottom"],
+  ["rgb(215, 231, 246)", "onboarding shell bottom, rgb form"],
+];
+
+const specDir = join(DESKTOP, "tests");
+function walk(dir) {
+  const out = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const p = join(dir, entry.name);
+    if (entry.isDirectory()) out.push(...walk(p));
+    else if (/\.(ts|tsx|mjs)$/.test(entry.name)) out.push(p);
+  }
+  return out;
+}
+if (existsSync(specDir)) {
+  for (const file of walk(specDir)) {
+    const src = readFileSync(file, "utf8");
+    for (const [literal, what] of SUPERSEDED_LITERALS) {
+      if (src.includes(literal)) {
+        problems.push(
+          `${file.slice(DESKTOP.length + 1)} still pins ${literal} (${what}), ` +
+            "which the Kannaka overlay replaces — that spec will fail in CI. " +
+            "Update the expectation to the Kannaka value.",
+        );
+      }
+    }
+  }
 }
 
 // The overlay only wins on source order if it is imported after theme.css.
