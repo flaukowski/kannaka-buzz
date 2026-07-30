@@ -330,8 +330,12 @@ async function expectAppliedBuzzTheme(
       storedTheme,
       isDark,
       buzzTheme: themeName,
-      gradientTop: isDark ? "#4a4616" : "#e6e6b6",
-      gradientBottom: isDark ? "#0a1423" : "#c4d0da",
+      // Kannaka fork: the workspace gradient is violet, not upstream's
+      // chartreuse-to-blue ramp — see globals/kannaka-theme.css. Brand pins
+      // move with the brand; the assertion that light must differ from dark
+      // (expectBuzzGradientPaint) is the part that is actually load-bearing.
+      gradientTop: isDark ? "#2e1b4d" : "#c9b3f7",
+      gradientBottom: isDark ? "#0b0e14" : "#ddd6fe",
     });
 }
 
