@@ -27,6 +27,7 @@ members = [
     "crates/buzz-relay-mesh",
     "crates/buzz-dev-mcp",
     "crates/buzz-kannaka",
+    "crates/buzz-voice",
     "examples/countdown-bot",
 ]
 exclude = ["desktop/src-tauri"]
