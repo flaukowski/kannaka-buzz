@@ -13,7 +13,6 @@ import { Button } from "@/shared/ui/button";
 import { StartupWindowDragRegion } from "@/shared/ui/StartupWindowDragRegion";
 import { BackupStep } from "./BackupStep";
 import { DefaultConfigStep } from "./DefaultConfigStep";
-import { KannakaCrest } from "@/features/kannaka/ui/KannakaCrest";
 import { DownloadKeyStep } from "./DownloadKeyStep";
 import {
   backupSessionToPasswordEntry,
@@ -212,18 +211,11 @@ export function MachineOnboardingFlow({
               effect="mask-reveal-up"
               transitionKey="machine-identity"
             >
-              <div
-                aria-label="Kannaka Buzz"
-                className="kannaka-crest-frame w-full max-w-[600px]"
-                role="img"
-              >
-                <img
-                  alt=""
-                  className="w-full"
-                  src="/landing/buzz-wordmark.png"
-                />
-                <KannakaCrest className="kannaka-crest" />
-              </div>
+              <img
+                alt="Buzz"
+                className="w-full max-w-[600px]"
+                src="/landing/buzz-wordmark.png"
+              />
               <p className="mt-2 max-w-[560px] text-center text-2xl font-normal leading-none text-foreground">
                 Your people, your agents, your projects —<br />
                 all in one place.

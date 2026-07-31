@@ -122,6 +122,66 @@ if (!components.includes(LANDING_SELECTOR)) {
 }
 
 /*
+ * The crest is injected at runtime (features/kannaka/mount.ts) instead of being
+ * imported by an upstream component, which is what stopped it conflicting on
+ * every sync. That trade buys merge quiet at the cost of a runtime dependency
+ * on upstream markup: if the wordmark is renamed or the mount stops loading,
+ * nothing errors — the crest just isn't there, and the branded build ships
+ * looking like stock Buzz.
+ *
+ * So the whole chain is asserted here, statically. A rename upstream should
+ * fail this check, not a screenshot somebody eyeballs later.
+ */
+const WORDMARK_ASSET = "buzz-wordmark.png";
+const MOUNT_ENTRY = "/src/features/kannaka/mount.ts";
+const CREST_ANCHOR = `:has(> img[src$="${WORDMARK_ASSET}"])`;
+
+const INDEX_HTML = join(DESKTOP, "index.html");
+const MOUNT = join(DESKTOP, "src/features/kannaka/mount.ts");
+const ONBOARDING = join(
+  DESKTOP,
+  "src/features/onboarding/ui/MachineOnboardingFlow.tsx",
+);
+
+if (!existsSync(MOUNT)) {
+  problems.push(`missing ${MOUNT} — nothing injects the crest.`);
+} else if (!existsSync(INDEX_HTML)) {
+  problems.push(`missing ${INDEX_HTML} — the mount has no entry point.`);
+} else {
+  const indexHtml = readFileSync(INDEX_HTML, "utf8");
+  if (!indexHtml.includes(MOUNT_ENTRY)) {
+    problems.push(
+      `index.html no longer loads ${MOUNT_ENTRY} — an upstream sync probably ` +
+        "reverted it. The crest would never mount and onboarding would ship unbranded.",
+    );
+  }
+}
+
+if (existsSync(ONBOARDING)) {
+  const onboarding = readFileSync(ONBOARDING, "utf8");
+  if (!onboarding.includes(WORDMARK_ASSET)) {
+    problems.push(
+      `MachineOnboardingFlow no longer renders ${WORDMARK_ASSET} — that image is ` +
+        "the crest's anchor. Find what replaced it, then update WORDMARK in " +
+        "src/features/kannaka/mount.ts and CREST_ANCHOR in kannaka-theme.css.",
+    );
+  }
+}
+
+if (!existsSync(join(DESKTOP, "public/landing", WORDMARK_ASSET))) {
+  problems.push(
+    `public/landing/${WORDMARK_ASSET} is gone — the crest anchors on that asset.`,
+  );
+}
+
+if (!overlay.includes(CREST_ANCHOR)) {
+  problems.push(
+    `kannaka-theme.css no longer contains "${CREST_ANCHOR}" — the injected crest ` +
+      "would have no positioned parent and would land relative to the page.",
+  );
+}
+
+/*
  * Upstream E2E specs PIN brand colours as literals, so re-tinting a token
  * silently breaks tests that live nowhere near the stylesheet. Two rules fell
  * out of doing it the hard way:
