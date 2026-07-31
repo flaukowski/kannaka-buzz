@@ -1,7 +1,7 @@
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
 import { emit } from "@tauri-apps/api/event";
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
-import { decode, npubEncode } from "nostr-tools/nip19";
+import { decode, npubEncode, nsecEncode } from "nostr-tools/nip19";
 import { finalizeEvent, getPublicKey } from "nostr-tools/pure";
 import { parse as yamlParse } from "yaml";
 import {
@@ -11,6 +11,7 @@ import {
 } from "./e2eBridgeCustomHarnesses.ts";
 
 import { relayClient } from "@/shared/api/relayClient";
+import { activateRateLimit } from "@/shared/api/relayRateLimitGate";
 import type { ConnectionState } from "@/shared/api/relayClientShared";
 import type { ChannelTemplate, RelayEvent } from "@/shared/api/types";
 import { getMarkdownParseCount } from "@/shared/ui/markdown/nodeCache";
@@ -1115,6 +1116,7 @@ declare global {
       unavailable: boolean,
     ) => void;
     __BUZZ_E2E_GET_WEBSOCKET_CONNECT_ATTEMPTS__?: () => number[];
+    __BUZZ_E2E_ACTIVATE_RELAY_RATE_LIMIT__?: (seconds: number) => void;
     __BUZZ_E2E_RESET_WEBSOCKET_CONNECT_ATTEMPTS__?: () => void;
     __BUZZ_E2E_SET_MESH__?: (mesh: {
       admitted?: boolean;
@@ -7227,6 +7229,22 @@ let nsecCallCount = 0;
 let backupVerificationCallCount = 0;
 let backupSaveCallCount = 0;
 
+const MOCK_NCRYPTSEC =
+  "ncryptsec1qgg9947rlpvqu76pj5ecreduf9jxhselq2nae2kghhvd5g7dgjtcxfqtd67p9m0w57lspw8gsq6yphnm8623nsl8xn9j4jdzz84zm3frztj3z7s35vpzmqf6ksu8r89qk5z2zxfmu5gv8th8wclt0h4p";
+const MOCK_BACKUP_PASSPHRASE = "mock horse battery staple lake orbit";
+const MOCK_PASSPHRASE_WORDS = [
+  "mock",
+  "horse",
+  "battery",
+  "staple",
+  "lake",
+  "orbit",
+  "cedar",
+  "plume",
+  "raven",
+  "tundra",
+];
+
 // Per-page explicit catalog publication outcomes.
 let personaSharePublicationCallCount = 0;
 
@@ -9706,6 +9724,9 @@ export function maybeInstallE2eTauriMocks() {
   window.__BUZZ_E2E_GET_WEBSOCKET_CONNECT_ATTEMPTS__ = () => [
     ...relayWebsocketConnectAttemptStarts,
   ];
+  window.__BUZZ_E2E_ACTIVATE_RELAY_RATE_LIMIT__ = (seconds) => {
+    activateRateLimit(seconds);
+  };
   window.__BUZZ_E2E_RESET_WEBSOCKET_CONNECT_ATTEMPTS__ = () => {
     relayWebsocketConnectAttemptStarts.length = 0;
   };
@@ -9934,14 +9955,22 @@ export function maybeInstallE2eTauriMocks() {
         // harness there is nothing to wipe; resolving is enough — specs
         // assert invocation via __BUZZ_E2E_COMMANDS__ and the pending UI.
         return;
-      case "generate_backup_passphrase":
-        return "correct horse battery staple";
+      case "generate_backup_passphrase": {
+        const request = payload as {
+          words?: number;
+          separator?: string;
+        } | null;
+        const wordCount = Math.min(Math.max(request?.words ?? 3, 3), 10);
+        return MOCK_PASSPHRASE_WORDS.slice(0, wordCount).join(
+          request?.separator ?? " ",
+        );
+      }
       case "create_ncryptsec_backup": {
         const delayMs = activeConfig?.mock?.backupEncryptionDelayMs ?? 0;
         if (delayMs > 0) {
           await new Promise((resolve) => setTimeout(resolve, delayMs));
         }
-        return "ncryptsec1mockbackupmaterial";
+        return MOCK_NCRYPTSEC;
       }
       case "save_ncryptsec_copy": {
         const paths = activeConfig?.mock?.backupSavePaths ?? [
@@ -9952,7 +9981,16 @@ export function maybeInstallE2eTauriMocks() {
         return paths[index];
       }
       case "verify_ncryptsec_backup": {
-        const errors = activeConfig?.mock?.backupVerificationErrors ?? [null];
+        const request = payload as { password?: string } | null;
+        const configuredErrors = activeConfig?.mock?.backupVerificationErrors;
+        const hasConfiguredResult = Boolean(
+          activeConfig?.mock?.backupVerificationPubkeys,
+        );
+        const errors = configuredErrors ?? [
+          hasConfiguredResult || request?.password === MOCK_BACKUP_PASSPHRASE
+            ? null
+            : "wrong backup password or damaged key backup",
+        ];
         const index = Math.min(backupVerificationCallCount, errors.length - 1);
         const error = errors[index];
         if (error) {
@@ -10003,12 +10041,26 @@ export function maybeInstallE2eTauriMocks() {
           locked: false,
         };
       }
-      case "import_identity":
+      case "import_identity": {
+        const request = payload as { nsec?: string; password?: string } | null;
+        const input = request?.nsec ?? "";
+        if (input.trim().startsWith("ncryptsec1")) {
+          if (
+            input.trim() !== MOCK_NCRYPTSEC ||
+            request?.password !== MOCK_BACKUP_PASSPHRASE
+          ) {
+            throw new Error("Wrong backup password or damaged key backup.");
+          }
+          mockIdentityLostCleared = true;
+          mockIdentityLockedCleared = true;
+          return importMockIdentity(
+            nsecEncode(hexToBytes(DEFAULT_REAL_IDENTITY.privateKey)),
+          );
+        }
         mockIdentityLostCleared = true;
         mockIdentityLockedCleared = true;
-        return importMockIdentity(
-          (payload as { nsec?: string } | null)?.nsec ?? "",
-        );
+        return importMockIdentity(input);
+      }
       case "validate_repos_dir":
         // The browser harness has no host filesystem to validate. Treat the
         // seeded empty/default path as valid so Add Community can continue to
