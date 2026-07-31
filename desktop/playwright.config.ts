@@ -109,6 +109,7 @@ export default defineConfig({
         "**/buzz-theme-screenshots.spec.ts",
         "**/channel-sort.spec.ts",
         "**/identity-lost.spec.ts",
+        "**/kannaka-crest.spec.ts",
         "**/deep-link-invite.spec.ts",
         "**/invite-link-copy.spec.ts",
         "**/global-agent-config-screenshots.spec.ts",

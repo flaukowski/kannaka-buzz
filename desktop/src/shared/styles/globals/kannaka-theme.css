@@ -121,22 +121,38 @@
 }
 
 /*
- * The crest overlays the wordmark in the PNG's own coordinate space, extended
- * upward by 70px of headroom for the crown — so it is inset to the image box
- * and then grown to match that taller viewBox. Percentages, not pixels, so the
- * lockup holds together at every render width.
+ * ── Crest ────────────────────────────────────────────────────────────────
+ *
+ * The crest is injected next to the wordmark by features/kannaka/mount.ts, so
+ * no upstream component references it. That leaves the positioning entirely to
+ * CSS, anchored on markup upstream maintains for its own reasons.
+ *
+ * The anchor is the wordmark's own parent. `:has(> img[...])` is the only way
+ * to style a parent from a child, and it is safe to rely on here — upstream
+ * already ships `:has()` in skeleton.css, so it is proven on every webview Buzz
+ * supports.
  */
-.kannaka-crest-frame {
+.buzz-onboarding-neutral-theme :has(> img[src$="buzz-wordmark.png"]) {
   position: relative;
-  display: block;
 }
 
+/*
+ * Sized from the image's own box rather than measured in JS. Upstream renders
+ * the wordmark as `w-full max-w-[600px]`, so `min(100%, 600px)` reproduces its
+ * width exactly, and the artwork's aspect ratio gives the rest.
+ *
+ * The lift uses `translateY`, not `top`. A percentage on `top` resolves against
+ * the PARENT's height — here a flex column that also holds the tagline and the
+ * buttons — which would put the crown somewhere unrelated to the artwork. A
+ * percentage in `transform` resolves against the ELEMENT's own height, so
+ * -70/396 lifts by exactly the crown headroom at any render width.
+ */
 .kannaka-crest {
   position: absolute;
-  left: 0;
-  width: 100%;
-  /* -70/326 and 396/326: the headroom expressed against the artwork height. */
-  top: -21.472%;
-  height: 121.472%;
+  top: 0;
+  left: 50%;
+  width: min(100%, 600px);
+  aspect-ratio: 777 / 396;
+  transform: translate(-50%, -17.6768%);
   pointer-events: none;
 }
