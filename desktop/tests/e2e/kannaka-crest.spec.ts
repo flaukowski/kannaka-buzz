@@ -49,26 +49,48 @@ test("the Kannaka crest is mounted over the landing wordmark", async ({
   // It is the lockup, not an empty SVG: the word has to be in there.
   await expect(crest.locator("title")).toHaveText("Kannaka");
 
+  // Geometry is asserted through expect.poll rather than a single read. The
+  // landing runs a `mask-reveal-up` transition, and boundingBox() reflects
+  // in-flight transforms — measuring mid-animation reports the image a few
+  // pixels off its resting position. That is a slow-runner race, not a layout
+  // bug, so the fix is to wait for it to settle rather than widen the
+  // tolerance until the real failure could slip through too.
+  //
+  // Returns the WORST deviation across all three geometric claims so one poll
+  // covers them together:
+  //   - width/x: the crest spans the artwork. Drift here means
+  //     `min(100%, 600px)` stopped tracking upstream's `w-full max-w-[600px]`.
+  //   - lift: the crown rises above the artwork by exactly the headroom. This
+  //     is the load-bearing one — it proves the translateY resolved against the
+  //     crest's own height and not the parent flex column's, which is the bug
+  //     that would put the crown somewhere unrelated. Resolving against the
+  //     parent would be wrong by tens of pixels, so a 2px bound still catches
+  //     it with room to spare.
+  await expect
+    .poll(
+      async () => {
+        const c = await crest.boundingBox();
+        const w = await wordmark.boundingBox();
+        if (!c || !w || c.width === 0 || c.height === 0) {
+          return Number.POSITIVE_INFINITY;
+        }
+        const expectedLift = (w.width * CROWN_HEADROOM) / ARTWORK_WIDTH;
+        return Math.max(
+          Math.abs(c.width - w.width),
+          Math.abs(c.x - w.x),
+          Math.abs(w.y - c.y - expectedLift),
+        );
+      },
+      { message: "crest geometry never settled against the wordmark" },
+    )
+    .toBeLessThanOrEqual(2);
+
+  // Directional check, stated separately so a failure reads plainly as "the
+  // crown is not above the artwork" rather than as a tolerance number.
   const crestBox = await crest.boundingBox();
   const wordBox = await wordmark.boundingBox();
   if (!crestBox || !wordBox) throw new Error("crest or wordmark has no box");
-
-  // Laid out, not collapsed. An unmatched CSS anchor yields a zero box.
-  expect(crestBox.width).toBeGreaterThan(0);
-  expect(crestBox.height).toBeGreaterThan(0);
-
-  // Spans the artwork: CSS sizes it from the image's own box, so a drift here
-  // means `min(100%, 600px)` stopped tracking upstream's `w-full max-w-[600px]`.
-  expect(Math.abs(crestBox.width - wordBox.width)).toBeLessThanOrEqual(2);
-  expect(Math.abs(crestBox.x - wordBox.x)).toBeLessThanOrEqual(2);
-
-  // The crown rises ABOVE the artwork. This is the assertion that proves the
-  // translateY lift resolved against the crest's own height rather than the
-  // parent flex column's — the bug that would put the crown somewhere unrelated.
   expect(crestBox.y).toBeLessThan(wordBox.y);
-
-  const expectedLift = (wordBox.width * CROWN_HEADROOM) / ARTWORK_WIDTH;
-  expect(Math.abs(wordBox.y - crestBox.y - expectedLift)).toBeLessThanOrEqual(2);
 });
 
 test("the crest is not injected twice across a re-render", async ({ page }) => {
