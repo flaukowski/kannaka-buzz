@@ -586,11 +586,17 @@ pub async fn validate_admin_event(
                 }
             }
 
-            // name/about/archived/visibility/ttl require owner/admin;
-            // topic/purpose allow any member.
+            // name/about/archived/visibility/ttl/no-bridge require owner/admin;
+            // topic/purpose allow any member. no-bridge (#645) is export
+            // control — deliberately NOT the casual any-member tier.
             let has_privileged_tag = event.tags.iter().any(|t| {
                 let k = t.kind().to_string();
-                k == "name" || k == "about" || k == "archived" || k == "visibility" || k == "ttl"
+                k == "name"
+                    || k == "about"
+                    || k == "archived"
+                    || k == "visibility"
+                    || k == "ttl"
+                    || k == "no-bridge"
             });
             if has_privileged_tag {
                 let members = state.db.get_members(tenant.community(), channel_id).await?;
@@ -1098,6 +1104,11 @@ pub async fn emit_group_discovery_events(
         if channel.archived_at.is_some() {
             tags.push(Tag::parse(["archived", "true"])?);
         }
+        // #645: export policy — consumers that replicate events off-relay
+        // (kannaka-hive-bridge) fail closed on this tag.
+        if channel.no_bridge {
+            tags.push(Tag::parse(["no-bridge"])?);
+        }
         // Ephemeral channel TTL — clients use this to show countdown timers.
         if let Some(ttl) = channel.ttl_seconds {
             tags.push(Tag::parse(["ttl", &ttl.to_string()])?);
@@ -1494,6 +1505,42 @@ async fn handle_edit_metadata(
                         channel_id,
                         serde_json::json!({
                             "type": "purpose_changed", "actor": actor_hex, "purpose": val
+                        }),
+                    )
+                    .await?;
+                }
+                "no-bridge" => {
+                    // #645: per-channel export policy. Owner/admin tier (see
+                    // the kind:9002 validator) — export control is not a
+                    // casual edit. Emitted on the next kind:39000 so
+                    // consumers (kannaka-hive-bridge fails closed on it)
+                    // can honor it without out-of-band configuration.
+                    let flag = match val {
+                        "true" => true,
+                        "false" => false,
+                        other => {
+                            return Err(anyhow::anyhow!(
+                                "invalid no-bridge value: {other} (must be true or false)"
+                            ));
+                        }
+                    };
+                    state
+                        .db
+                        .update_channel(
+                            tenant.community(),
+                            channel_id,
+                            buzz_db::channel::ChannelUpdate {
+                                no_bridge: Some(flag),
+                                ..Default::default()
+                            },
+                        )
+                        .await?;
+                    emit_system_message(
+                        tenant,
+                        state,
+                        channel_id,
+                        serde_json::json!({
+                            "type": "no_bridge_changed", "actor": actor_hex, "no_bridge": flag
                         }),
                     )
                     .await?;
