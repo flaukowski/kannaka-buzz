@@ -3337,7 +3337,11 @@ mod tests {
             );
 
             let one = make_event_with_tags(kind, "{}", &[&["e", req_id]]);
-            assert_eq!(validate_job_event(kind, &one), Ok(()), "kind {kind} with one e tag passes");
+            assert_eq!(
+                validate_job_event(kind, &one),
+                Ok(()),
+                "kind {kind} with one e tag passes"
+            );
 
             let two = make_event_with_tags(kind, "{}", &[&["e", req_id], &["e", req_id]]);
             assert_eq!(
