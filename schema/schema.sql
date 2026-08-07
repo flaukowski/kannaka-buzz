@@ -95,6 +95,9 @@ CREATE TABLE channels (
     participant_hash BYTEA,
     ttl_seconds     INT,
     ttl_deadline    TIMESTAMPTZ,
+    -- #645: export policy — kind:39000 carries a no-bridge tag when set;
+    -- off-relay replicators (kannaka-hive-bridge) fail closed on it.
+    no_bridge       BOOLEAN NOT NULL DEFAULT FALSE,
     PRIMARY KEY (community_id, id),
     CONSTRAINT chk_channels_id_not_nil CHECK (id <> '00000000-0000-0000-0000-000000000000'::uuid)
 );

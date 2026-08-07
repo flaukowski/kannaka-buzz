@@ -47,6 +47,11 @@ pub struct ChannelRecord {
     pub topic_required: bool,
     /// Optional cap on the number of members.
     pub max_members: Option<i32>,
+    /// #645: export policy — when true, this channel's events must not be
+    /// replicated off this relay (emitted as a `no-bridge` tag on the
+    /// relay-signed kind:39000 metadata; kannaka-hive-bridge fails closed on
+    /// it). Owner/admin-tier edit via kind:9002.
+    pub no_bridge: bool,
     /// Current channel topic (short, visible in header).
     pub topic: Option<String>,
     /// Compressed public key bytes of the user who last set the topic.
@@ -153,7 +158,7 @@ pub async fn create_channel(
                nip29_group_id, topic_required, max_members,
                topic, topic_set_by, topic_set_at,
                purpose, purpose_set_by, purpose_set_at,
-               ttl_seconds, ttl_deadline
+               ttl_seconds, ttl_deadline, no_bridge
         FROM channels WHERE community_id = $1 AND id = $2
         "#,
     )
@@ -253,7 +258,7 @@ pub async fn create_channel_with_id(
                nip29_group_id, topic_required, max_members,
                topic, topic_set_by, topic_set_at,
                purpose, purpose_set_by, purpose_set_at,
-               ttl_seconds, ttl_deadline
+               ttl_seconds, ttl_deadline, no_bridge
         FROM channels WHERE community_id = $1 AND id = $2
         "#,
     )
@@ -281,7 +286,7 @@ pub async fn get_channel(
                nip29_group_id, topic_required, max_members,
                topic, topic_set_by, topic_set_at,
                purpose, purpose_set_by, purpose_set_at,
-               ttl_seconds, ttl_deadline
+               ttl_seconds, ttl_deadline, no_bridge
         FROM channels WHERE community_id = $1 AND id = $2 AND deleted_at IS NULL
         "#,
     )
@@ -788,7 +793,7 @@ pub async fn list_channels(
                    nip29_group_id, topic_required, max_members,
                    topic, topic_set_by, topic_set_at,
                    purpose, purpose_set_by, purpose_set_at,
-                   ttl_seconds, ttl_deadline
+                   ttl_seconds, ttl_deadline, no_bridge
             FROM channels
             WHERE community_id = $1 AND deleted_at IS NULL AND visibility::text = $2
             ORDER BY created_at DESC
@@ -808,7 +813,7 @@ pub async fn list_channels(
                    nip29_group_id, topic_required, max_members,
                    topic, topic_set_by, topic_set_at,
                    purpose, purpose_set_by, purpose_set_at,
-                   ttl_seconds, ttl_deadline
+                   ttl_seconds, ttl_deadline, no_bridge
             FROM channels
             WHERE community_id = $1 AND deleted_at IS NULL
             ORDER BY created_at DESC
@@ -856,7 +861,7 @@ async fn get_channel_tx(
                nip29_group_id, topic_required, max_members,
                topic, topic_set_by, topic_set_at,
                purpose, purpose_set_by, purpose_set_at,
-               ttl_seconds, ttl_deadline
+               ttl_seconds, ttl_deadline, no_bridge
         FROM channels WHERE community_id = $1 AND id = $2 AND deleted_at IS NULL
         "#,
     )
@@ -1095,6 +1100,8 @@ fn row_to_channel_record(row: sqlx::postgres::PgRow) -> Result<ChannelRecord> {
     let purpose_set_at: Option<DateTime<Utc>> = row.try_get("purpose_set_at").unwrap_or(None);
     let ttl_seconds: Option<i32> = row.try_get("ttl_seconds").unwrap_or(None);
     let ttl_deadline: Option<DateTime<Utc>> = row.try_get("ttl_deadline").unwrap_or(None);
+    // #645: absent column (older SELECT paths) reads as the safe default.
+    let no_bridge: bool = row.try_get("no_bridge").unwrap_or(false);
 
     Ok(ChannelRecord {
         id,
@@ -1111,6 +1118,7 @@ fn row_to_channel_record(row: sqlx::postgres::PgRow) -> Result<ChannelRecord> {
         nip29_group_id: row.try_get("nip29_group_id")?,
         topic_required,
         max_members: row.try_get("max_members")?,
+        no_bridge,
         topic,
         topic_set_by,
         topic_set_at,
@@ -1149,6 +1157,8 @@ pub struct ChannelUpdate {
     /// ephemeral TTL (channel becomes permanent), `Some(Some(secs))` sets it.
     /// On any change the `ttl_deadline` is reset to `NOW() + ttl_seconds`.
     pub ttl_seconds: Option<Option<i32>>,
+    /// #645: export policy change, or `None` to leave unchanged.
+    pub no_bridge: Option<bool>,
 }
 
 /// Updates channel metadata dynamically.
@@ -1165,6 +1175,7 @@ pub async fn update_channel(
         && updates.description.is_none()
         && updates.visibility.is_none()
         && updates.ttl_seconds.is_none()
+        && updates.no_bridge.is_none()
     {
         return Err(DbError::InvalidData(
             "at least one field must be provided for update".to_string(),
@@ -1206,6 +1217,10 @@ pub async fn update_channel(
             None => set_parts.push("ttl_deadline = NULL".to_string()),
         }
     }
+    if updates.no_bridge.is_some() {
+        set_parts.push(format!("no_bridge = ${param_idx}"));
+        param_idx += 1;
+    }
     let channel_param_idx = param_idx + 1;
     let sql = format!(
         "UPDATE channels SET {}, updated_at = NOW() WHERE community_id = ${param_idx} AND id = ${channel_param_idx} AND deleted_at IS NULL",
@@ -1224,6 +1239,9 @@ pub async fn update_channel(
     }
     if let Some(ref ttl) = updates.ttl_seconds {
         q = q.bind(*ttl);
+    }
+    if let Some(no_bridge) = updates.no_bridge {
+        q = q.bind(no_bridge);
     }
     q = q.bind(community_id.as_uuid());
     q = q.bind(channel_id);
